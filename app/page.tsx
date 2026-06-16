@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 
-const ACCOUNTS = {
+const ACCOUNTS: { [key: string]: { name: string; initials: string; role: string } } = {
   'jake.r@newburyfloral.com': { name: 'Jake Rivera', initials: 'JR', role: 'rep' },
   'rosa.m@newburyfloral.com': { name: 'Rosa Martinez', initials: 'RM', role: 'manager' },
 }
