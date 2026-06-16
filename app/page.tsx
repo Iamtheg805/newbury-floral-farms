@@ -1,7 +1,13 @@
 'use client'
 import { useState } from 'react'
 
-const ACCOUNTS: { [key: string]: { name: string; initials: string; role: string } } = {
+type User = {
+  name: string
+  initials: string
+  role: string
+}
+
+const ACCOUNTS: { [key: string]: User } = {
   'jake.r@newburyfloral.com': { name: 'Jake Rivera', initials: 'JR', role: 'rep' },
   'rosa.m@newburyfloral.com': { name: 'Rosa Martinez', initials: 'RM', role: 'manager' },
 }
@@ -10,7 +16,7 @@ export default function Home() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<User | null>(null)
 
   function handleLogin() {
     const acc = ACCOUNTS[email.toLowerCase()]
