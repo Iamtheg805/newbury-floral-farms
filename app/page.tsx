@@ -27,8 +27,10 @@ export default function Home() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', data.user.id)
+        .eq('email', data.user.email)
         .single()
+
+      alert('Role is: ' + profile?.role + ' User: ' + data.user?.email)
 
       if (profile?.role === 'manager') {
         window.location.href = '/manager'
