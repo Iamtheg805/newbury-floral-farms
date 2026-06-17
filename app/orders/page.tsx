@@ -64,6 +64,9 @@ export default function Orders() {
     } else if (field === 'qty') {
       const qty = parseInt(value) || 1
       updated[index] = { ...updated[index], qty, sub: updated[index].price * qty }
+    } else if (field === 'price') {
+      const price = parseFloat(value) || 0
+      updated[index] = { ...updated[index], price, sub: price * updated[index].qty }
     }
     setItems(updated)
   }
@@ -97,11 +100,74 @@ export default function Orders() {
   const batchTotal = batch.reduce((s, o) => s + o.total, 0)
   const batchComm = batchTotal * 0.07
 
-  function makeBars() {
-    const p = [3,1,2,3,1,1,2,1,3,2,1,1,2,3,1,2,1,3,1,2]
-    return p.map((w, i) => (
-      <span key={i} style={{ display: 'inline-block', width: `${w}px`, height: `${12 + (i % 5) * 4}px`, background: '#111', marginRight: '1px' }} />
-    ))
+  function printLabels() {
+    const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    
+    const labelsHTML = batch.map(o => `
+      <div style="width:4in;height:6in;padding:0.2in;font-family:monospace;font-size:9px;color:#111;page-break-after:always;box-sizing:border-box;border:1px solid #eee;">
+        <div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:8px;">
+          <div>
+            <div style="font-weight:bold;font-size:12px;">NEWBURY FLORAL FARMS</div>
+            <div>1200 Harbor Blvd, Oxnard CA 93033</div>
+            <div>(805) 555-0100</div>
+            <div>dispatch@newburyfloral.com</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:bold;font-size:28px;color:#111;">${o.carrier}</div>
+            <div style="font-size:11px;">${o.truck}</div>
+            <div style="font-size:10px;">Rep: Jake Rivera</div>
+          </div>
+        </div>
+        <div style="font-size:8px;color:#888;margin-bottom:3px;">SHIP TO</div>
+        <div style="font-weight:bold;font-size:18px;margin-bottom:4px;">${o.customer}</div>
+        <div style="margin-bottom:10px;line-height:1.6;font-size:11px;">
+          <div>${o.addr}</div>
+          <div>${o.phone}</div>
+        </div>
+        <div style="font-size:8px;color:#888;margin-bottom:4px;">ITEMS</div>
+        <div style="border-top:0.5px solid #ddd;padding-top:4px;margin-bottom:10px;">
+          ${o.items.map(it => `
+            <div style="display:flex;justify-content:space-between;line-height:2;font-size:11px;">
+              <span>${it.name} x ${it.qty}</span>
+              <span>$${it.sub.toFixed(2)}</span>
+            </div>
+          `).join('')}
+          <div style="display:flex;justify-content:space-between;font-weight:bold;border-top:0.5px solid #ddd;padding-top:3px;margin-top:3px;font-size:12px;">
+            <span>Total</span><span>$${o.total.toFixed(2)}</span>
+          </div>
+        </div>
+        <div style="border-top:2px solid #111;padding-top:8px;">
+          <div style="display:flex;justify-content:space-between;font-size:10px;">
+            <span>${o.id}</span><span>${date}</span>
+          </div>
+        </div>
+      </div>
+    `).join('')
+
+    const fullHTML = `<!DOCTYPE html>
+<html>
+<head>
+<title>Labels</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: white; }
+@page { size: 4in 6in; margin: 0; }
+</style>
+</head>
+<body>${labelsHTML}</body>
+</html>`
+
+    const blob = new Blob([fullHTML], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const printWindow = window.open(url)
+    if (printWindow) {
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print()
+        }, 500)
+      }
+    }
+    setPrinted(true)
   }
 
   return (
@@ -137,8 +203,8 @@ export default function Orders() {
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.25rem' }}>
           {(['add', 'review', 'print'] as const).map((s, i) => (
             <div key={s} style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: step === s ? '#185FA5' : i < (['add','review','print'] as const).indexOf(step) ? '#3B6D11' : '#888', fontWeight: step === s ? '500' : '400' }}>
-                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: step === s ? '#185FA5' : i < (['add','review','print'] as const).indexOf(step) ? '#3B6D11' : '#f0f0ee', color: step === s || i < (['add','review','print'] as const).indexOf(step) ? 'white' : '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{i + 1}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: step === s ? '#185FA5' : i < ['add', 'review', 'print'].indexOf(step) ? '#3B6D11' : '#888', fontWeight: step === s ? '500' : '400' }}>
+                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: step === s ? '#185FA5' : i < ['add', 'review', 'print'].indexOf(step) ? '#3B6D11' : '#f0f0ee', color: step === s || i < ['add', 'review', 'print'].indexOf(step) ? 'white' : '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{i + 1}</div>
                 {s === 'add' ? 'Add orders' : s === 'review' ? 'Review batch' : 'Print labels'}
               </div>
               {i < 2 && <div style={{ width: '40px', height: '1px', background: '#e5e5e3', margin: '0 8px' }} />}
@@ -153,35 +219,36 @@ export default function Orders() {
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Customer</div>
                 <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Select customer</label>
-                <select value={customer} onChange={e => handleCustomerChange(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', marginBottom: '10px' }}>
+                <select value={customer} onChange={e => handleCustomerChange(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', marginBottom: '10px', color: '#111' }}>
                   <option value=''>— choose customer —</option>
                   {Object.keys(customerData).map(c => <option key={c}>{c}</option>)}
                 </select>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
                     <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Address</label>
-                    <input value={addr} onChange={e => setAddr(e.target.value)} placeholder="Auto-filled" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px' }} />
+                    <input value={addr} onChange={e => setAddr(e.target.value)} placeholder="Auto-filled" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
                   </div>
                   <div>
                     <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Phone</label>
-                    <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Auto-filled" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px' }} />
+                    <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Auto-filled" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
                   </div>
                 </div>
               </div>
 
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Items</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 70px 24px', gap: '5px', padding: '0 0 6px', borderBottom: '0.5px solid #f0f0ee', marginBottom: '8px' }}>
-                  {['Flower', 'Qty', 'Subtotal', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 55px 80px 70px 24px', gap: '5px', paddingBottom: '6px', borderBottom: '0.5px solid #f0f0ee', marginBottom: '8px' }}>
+                  {['Flower', 'Qty', 'Price/unit', 'Subtotal', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
                 </div>
                 {items.map((item, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 70px 24px', gap: '5px', marginBottom: '6px', alignItems: 'center' }}>
-                    <select value={item.name} onChange={e => handleItemChange(i, 'name', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px' }}>
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 55px 80px 70px 24px', gap: '5px', marginBottom: '6px', alignItems: 'center' }}>
+                    <select value={item.name} onChange={e => handleItemChange(i, 'name', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
                       {flowerOptions.map(f => <option key={f.name}>{f.name}</option>)}
                     </select>
-                    <input type="number" value={item.qty} min={1} onChange={e => handleItemChange(i, 'qty', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px' }} />
+                    <input type="number" value={item.qty} min={1} onChange={e => handleItemChange(i, 'qty', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
+                    <input type="number" value={item.price} min={0} step={0.01} onChange={e => handleItemChange(i, 'price', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
                     <input value={`$${item.sub.toFixed(2)}`} readOnly style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#666', background: '#f9f9f8' }} />
-                    <button onClick={() => removeItem(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '14px', color: '#888' }}>×</button>
+                    <button onClick={() => removeItem(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '16px', color: '#888' }}>×</button>
                   </div>
                 ))}
                 <button onClick={addItem} style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '0.5px solid #e5e5e3', background: 'transparent', cursor: 'pointer', color: '#444', marginTop: '4px' }}>+ Add item</button>
@@ -192,13 +259,13 @@ export default function Orders() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
                     <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Carrier</label>
-                    <select value={carrier} onChange={e => setCarrier(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px' }}>
+                    <select value={carrier} onChange={e => setCarrier(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }}>
                       {carriers.map(c => <option key={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Truck / Route ID</label>
-                    <input value={truck} onChange={e => setTruck(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px' }} />
+                    <input value={truck} onChange={e => setTruck(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
                   </div>
                 </div>
               </div>
@@ -225,7 +292,6 @@ export default function Orders() {
                   <div style={{ fontSize: '13px', fontWeight: '500', color: '#111' }}>Today&apos;s batch</div>
                   <div style={{ background: '#185FA5', color: 'white', borderRadius: '99px', fontSize: '11px', fontWeight: '500', padding: '2px 8px' }}>{batch.length}</div>
                 </div>
-
                 {batch.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '2rem 0', color: '#888', fontSize: '12px' }}>
                     <div style={{ fontSize: '28px', marginBottom: '8px' }}>🛒</div>
@@ -237,7 +303,7 @@ export default function Orders() {
                       <div key={o.id} style={{ background: '#f9f9f8', borderRadius: '8px', padding: '10px', marginBottom: '8px', border: '0.5px solid #e5e5e3' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                           <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{o.customer}</div>
-                          <button onClick={() => removeFromBatch(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '14px', color: '#888' }}>×</button>
+                          <button onClick={() => removeFromBatch(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '16px', color: '#888' }}>×</button>
                         </div>
                         <div style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace', marginBottom: '4px' }}>{o.id}</div>
                         <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>{o.items.map(it => `${it.name} ×${it.qty}`).join(', ')}</div>
@@ -282,7 +348,6 @@ export default function Orders() {
               ))}
             </div>
             <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
-              <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>All orders</div>
               <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
@@ -294,7 +359,7 @@ export default function Orders() {
                 <tbody>
                   {batch.map((o, i) => (
                     <tr key={o.id}>
-                      <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '10px', borderBottom: '0.5px solid #f0f0ee' }}>{o.id}</td>
+                      <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '10px', borderBottom: '0.5px solid #f0f0ee', color: '#111' }}>{o.id}</td>
                       <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.customer}</td>
                       <td style={{ padding: '8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items.map(it => `${it.name} ×${it.qty}`).join(', ')}</td>
                       <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${o.total.toFixed(2)}</td>
@@ -312,9 +377,8 @@ export default function Orders() {
                 Finalize & print all labels →
               </button>
               <button onClick={() => setStep('add')} style={{ padding: '9px 14px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
-                ← Back — add more orders
+                ← Back
               </button>
-              <div style={{ fontSize: '11px', color: '#888' }}>All QuickBooks invoices created automatically.</div>
             </div>
           </div>
         )}
@@ -335,9 +399,9 @@ export default function Orders() {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
               {!printed ? (
-                <button onClick={() => { window.print(); setPrinted(true) }} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
+                <button onClick={printLabels} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
                   🖨️ Print all {batch.length} labels
                 </button>
               ) : (
@@ -350,7 +414,7 @@ export default function Orders() {
               </button>
             </div>
 
-            {/* Label previews */}
+            {/* Label previews on screen */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {batch.map(o => (
                 <div key={o.id} style={{ background: 'white', border: '1.5px solid #ccc', borderRadius: '4px', padding: '14px', fontFamily: 'monospace', fontSize: '8px', color: '#111' }}>
@@ -359,25 +423,23 @@ export default function Orders() {
                       <div style={{ fontWeight: 'bold', fontSize: '11px' }}>NEWBURY FLORAL FARMS</div>
                       <div>1200 Harbor Blvd, Oxnard CA 93033</div>
                       <div>(805) 555-0100</div>
-                      <div>dispatch@newburyfloral.com</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '10px' }}>{o.carrier}</div>
+                      <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#111' }}>{o.carrier}</div>
                       <div>{o.truck}</div>
-                      <div>Rep: Jake Rivera</div>
                     </div>
                   </div>
                   <div style={{ fontSize: '7px', color: '#888', marginBottom: '2px' }}>SHIP TO</div>
                   <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '2px' }}>{o.customer}</div>
-                  <div style={{ marginBottom: '8px', lineHeight: '1.6' }}>
+                  <div style={{ marginBottom: '6px', lineHeight: '1.6' }}>
                     <div>{o.addr}</div>
                     <div>{o.phone}</div>
                   </div>
                   <div style={{ fontSize: '7px', color: '#888', marginBottom: '3px' }}>ITEMS</div>
-                  <div style={{ borderTop: '0.5px solid #ddd', paddingTop: '3px', marginBottom: '8px' }}>
-                    {o.items.map((it, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', lineHeight: '1.8' }}>
-                        <span>{it.name} × {it.qty}</span>
+                  <div style={{ borderTop: '0.5px solid #ddd', paddingTop: '3px', marginBottom: '6px' }}>
+                    {o.items.map((it, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', lineHeight: '1.8' }}>
+                        <span>{it.name} x {it.qty}</span>
                         <span>${it.sub.toFixed(2)}</span>
                       </div>
                     ))}
@@ -385,13 +447,10 @@ export default function Orders() {
                       <span>Total</span><span>${o.total.toFixed(2)}</span>
                     </div>
                   </div>
-                  <div style={{ borderTop: '1.5px solid #111', paddingTop: '6px', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: '28px', gap: '1px', marginBottom: '3px' }}>
-                      {makeBars()}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ borderTop: '1.5px solid #111', paddingTop: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px' }}>
                       <span>{o.id}</span>
-                      <span>Jun 15, 2026</span>
+                      <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     </div>
                   </div>
                 </div>
