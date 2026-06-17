@@ -1,9 +1,18 @@
 'use client'
 
 export default function Dashboard() {
+  const navItems = [
+    { label: 'Dashboard', href: '/dashboard', active: true },
+    { label: 'Flower Availability', href: '/flowers', active: false },
+    { label: 'New Order', href: '/orders', active: false },
+    { label: 'My Customers', href: '/customers', active: false },
+    { label: 'Quotes', href: '/quotes', active: false },
+    { label: 'My Commission', href: '/commission', active: false },
+  ]
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
-      
+
       {/* Sidebar */}
       <div style={{ width: '200px', background: '#ffffff', borderRight: '0.5px solid #e5e5e3', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #e5e5e3' }}>
@@ -18,28 +27,21 @@ export default function Dashboard() {
           </div>
         </div>
         <div style={{ padding: '4px 0' }}>
-          {[
-            { label: 'Dashboard', active: true },
-            { label: 'Flower Availability', active: false },
-            { label: 'New Order', active: false },
-            { label: 'My Customers', active: false },
-            { label: 'Quotes', active: false },
-            { label: 'My Commission', active: false },
-          ].map(item => (
-            <div key={item.label} style={{ padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', cursor: 'pointer' }}>
+          {navItems.map(item => (
+            <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', textDecoration: 'none' }}>
               {item.label}
-            </div>
+            </a>
           ))}
         </div>
-        <div style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', cursor: 'pointer' }}>
+        <a href="/" style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', cursor: 'pointer', textDecoration: 'none', display: 'block' }}>
           Sign out
-        </div>
+        </a>
       </div>
 
       {/* Main content */}
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
         <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Good morning, Jake 👋</div>
-        
+
         {/* Metrics */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
           {[
@@ -57,6 +59,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+
           {/* Goal progress */}
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
             <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Goal progress — June</div>
