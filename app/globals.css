@@ -54,3 +54,22 @@ th {
   text-align: left;
   font-weight: 500;
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-labels, .print-labels * {
+    visibility: visible;
+  }
+  .print-labels {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  @page {
+    size: 4in 6in;
+    margin: 0;
+  }
+}
