@@ -7,13 +7,13 @@ export default function Dashboard() {
       {/* Sidebar */}
       <div style={{ width: '200px', background: '#ffffff', borderRight: '0.5px solid #e5e5e3', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #e5e5e3' }}>
-          <div style={{ fontSize: '14px', fontWeight: '500' }}>Newbury Floral Farms</div>
+          <div style={{ fontSize: '14px', fontWeight: '500', color: '#111' }}>Newbury Floral Farms</div>
           <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>Sales portal</div>
         </div>
         <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e5e5e3', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>JR</div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: '500' }}>Jake Rivera</div>
+            <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>Jake Rivera</div>
             <div style={{ fontSize: '10px', color: '#888' }}>Sales Rep</div>
           </div>
         </div>
@@ -26,7 +26,7 @@ export default function Dashboard() {
             { label: 'Quotes', active: false },
             { label: 'My Commission', active: false },
           ].map(item => (
-            <div key={item.label} style={{ padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#666', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', cursor: 'pointer' }}>
+            <div key={item.label} style={{ padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', cursor: 'pointer' }}>
               {item.label}
             </div>
           ))}
@@ -38,25 +38,25 @@ export default function Dashboard() {
 
       {/* Main content */}
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
-        <div style={{ fontSize: '18px', fontWeight: '500', marginBottom: '1rem' }}>Good morning, Jake 👋</div>
+        <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Good morning, Jake 👋</div>
         
         {/* Metrics */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
           {[
             { label: 'Revenue (Jun)', value: '$42,180', sub: '+18% vs last month', subColor: '#3B6D11' },
-            { label: 'Open quotes', value: '6', sub: '$28,400 potential', subColor: '#888' },
-            { label: 'Orders this month', value: '24', sub: 'Goal: 30', subColor: '#888' },
-            { label: 'My customers', value: '18', sub: '3 need follow-up', subColor: '#888' },
+            { label: 'Open quotes', value: '6', sub: '$28,400 potential', subColor: '#666' },
+            { label: 'Orders this month', value: '24', sub: 'Goal: 30', subColor: '#666' },
+            { label: 'My customers', value: '18', sub: '3 need follow-up', subColor: '#666' },
           ].map(m => (
-            <div key={m.label} style={{ background: '#f4f4f2', borderRadius: '8px', padding: '14px' }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
-              <div style={{ fontSize: '22px', fontWeight: '500' }}>{m.value}</div>
-              <div style={{ fontSize: '11px', color: m.subColor, marginTop: '2px' }}>{m.sub}</div>
+            <div key={m.label} style={{ background: '#ffffff', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>{m.label}</div>
+              <div style={{ fontSize: '22px', fontWeight: '600', color: '#111111' }}>{m.value}</div>
+              <div style={{ fontSize: '11px', color: m.subColor, marginTop: '3px' }}>{m.sub}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
           {/* Goal progress */}
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
             <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Goal progress — June</div>
@@ -68,7 +68,7 @@ export default function Dashboard() {
               const pct = Math.round(g.val / g.max * 100)
               return (
                 <div key={g.label} style={{ marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px', color: '#333' }}>
                     <span>{g.label}</span>
                     <span style={{ color: '#888' }}>{g.val.toLocaleString()} / {g.max.toLocaleString()}</span>
                   </div>
@@ -93,17 +93,17 @@ export default function Dashboard() {
             ].map(c => (
               <div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '0.5px solid #f0f0ee' }}>
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: '500' }}>{c.name}</div>
+                  <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{c.name}</div>
                   <div style={{ fontSize: '11px', color: c.color }}>{c.days}</div>
                 </div>
-                <button style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '6px', border: '0.5px solid #e5e5e3', cursor: 'pointer', background: 'transparent' }}>Follow up</button>
+                <button style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '6px', border: '0.5px solid #e5e5e3', cursor: 'pointer', background: 'transparent', color: '#333' }}>Follow up</button>
               </div>
             ))}
           </div>
         </div>
 
         {/* Leaderboard */}
-        <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginTop: '10px' }}>
+        <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
           <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Leaderboard — June</div>
           {[
             { name: 'Sarah Lee', initials: 'SL', revenue: 54200, rate: '10%', bg: '#FAEEDA', tc: '#633806', rank: '1st' },
@@ -113,15 +113,16 @@ export default function Dashboard() {
             { name: 'Tom Walsh', initials: 'TW', revenue: 29400, rate: '7%', bg: '#E1F5EE', tc: '#085041', rank: '5th' },
           ].map((r, i) => (
             <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '8px', marginBottom: '4px', background: r.name.includes('you') ? '#E6F1FB' : 'transparent' }}>
-              <div style={{ width: '24px', fontSize: '12px', fontWeight: '500', color: i === 0 ? '#BA7517' : '#888' }}>{r.rank}</div>
+              <div style={{ width: '24px', fontSize: '12px', fontWeight: '500', color: i === 0 ? '#BA7517' : '#666' }}>{r.rank}</div>
               <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: r.bg, color: r.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{r.initials}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '12px', fontWeight: '500', color: r.name.includes('you') ? '#0C447C' : '#111' }}>{r.name}</div>
-                <div style={{ fontSize: '11px', color: '#888' }}>${r.revenue.toLocaleString()} · {r.rate} tier</div>
+                <div style={{ fontSize: '11px', color: '#666' }}>${r.revenue.toLocaleString()} · {r.rate} tier</div>
               </div>
             </div>
           ))}
         </div>
+
       </div>
     </div>
   )
