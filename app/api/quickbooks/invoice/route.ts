@@ -75,7 +75,6 @@ export async function POST(request: NextRequest) {
         },
       })),
       CustomerRef: { value: customerId },
-      DocNumber: order.id,
       PrivateNote: `Carrier: ${order.carrier} | Truck: ${order.truck}`,
     }
 
