@@ -1,74 +1,59 @@
 'use client'
 import { useState } from 'react'
-import { supabase } from './supabase.js'
 
 export default function Home() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState('')
 
   async function handleLogin() {
-    setLoading(true)
-    setError('')
-
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email: email.toLowerCase(),
-      password,
+    setStatus('Trying to log in...')
+    
+    const res = await fetch('https://xmljewzdsqqsgselwubn.supabase.co/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhtbGpld3pkc3Fxc2dzZWx3dWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NzQzNjEsImV4cCI6MjA5NzE1MDM2MX0.XdKzz5sKoZ9HiBlBXSNFscdTp8ZU4dyAaOmvqkEQa60'
+      },
+      body: JSON.stringify({ email: email.toLowerCase(), password })
     })
 
-    if (authError) {
-      setError('Invalid email or password. Please try again.')
-      setLoading(false)
-      return
+    const data = await res.json()
+    
+    if (data.access_token) {
+      const role = data.user?.user_metadata?.role
+      setStatus('Login successful! Role: ' + role)
+      setTimeout(() => {
+        if (role === 'manager') {
+          window.location.href = '/manager'
+        } else {
+          window.location.href = '/dashboard'
+        }
+      }, 1000)
+    } else {
+      setStatus('Login failed: ' + JSON.stringify(data))
     }
-
-    if (data.user) {
-      const role = data.user.user_metadata?.role
-      const name = data.user.user_metadata?.full_name || email.split('@')[0]
-      const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase()
-
-      localStorage.setItem('user_name', name)
-      localStorage.setItem('user_initials', initials)
-      localStorage.setItem('user_email', email.toLowerCase())
-      localStorage.setItem('user_role', role || 'rep')
-
-      if (role === 'manager') {
-        window.location.href = '/manager'
-      } else {
-        window.location.href = '/dashboard'
-      }
-    }
-
-    setLoading(false)
   }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9f9f8' }}>
-      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '340px', border: '0.5px solid #e5e5e3', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '340px', border: '0.5px solid #e5e5e3' }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '22px', fontWeight: '600', color: '#111' }}>Newbury Floral Farms</div>
-          <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>Sales portal — sign in to continue</div>
+          <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>Sales portal</div>
         </div>
         <div style={{ marginBottom: '10px' }}>
-          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Email address</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111', outline: 'none' }} />
+          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Email</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
         </div>
         <div style={{ marginBottom: '16px' }}>
           <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Password</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key === 'Enter' && handleLogin()} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111', outline: 'none' }} />
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
         </div>
-        {error && (
-          <div style={{ color: '#A32D2D', fontSize: '12px', marginBottom: '12px', background: '#FCEBEB', padding: '8px 12px', borderRadius: '6px' }}>
-            {error}
-          </div>
-        )}
-        <button onClick={handleLogin} disabled={loading} style={{ width: '100%', padding: '10px', background: loading ? '#aaa' : '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: '500' }}>
-          {loading ? 'Signing in...' : 'Sign in'}
+        {status && <div style={{ fontSize: '12px', marginBottom: '12px', padding: '8px', borderRadius: '6px', background: '#f0f0ee', color: '#333' }}>{status}</div>}
+        <button onClick={handleLogin} style={{ width: '100%', padding: '10px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: '500' }}>
+          Sign in
         </button>
-        <div style={{ fontSize: '11px', color: '#aaa', marginTop: '14px', textAlign: 'center' }}>
-          Contact your manager if you need access.
-        </div>
       </div>
     </div>
   )
