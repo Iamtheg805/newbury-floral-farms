@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -28,8 +29,19 @@ export async function GET(request: NextRequest) {
   })
 
   const tokens = await tokenResponse.json()
-  console.log('QuickBooks tokens:', tokens)
-  console.log('Realm ID:', realmId)
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  await supabase.from('quickbooks_tokens').upsert({
+    id: '00000000-0000-0000-0000-000000000001',
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
+    realm_id: realmId,
+    expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+  })
 
   return NextResponse.redirect('https://newbury-floral-farms-iamtheg805s-projects.vercel.app/manager?qb=connected')
 }
