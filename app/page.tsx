@@ -25,14 +25,7 @@ export default function Home() {
 
     if (data.user) {
       const role = data.user.user_metadata?.role
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', data.user.id)
-        .single()
-
-      const name = profile?.full_name || email.split('@')[0]
+      const name = data.user.user_metadata?.full_name || email.split('@')[0]
       const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase()
 
       localStorage.setItem('user_name', name)
