@@ -6,13 +6,12 @@ export async function GET(request: NextRequest) {
   const realmId = searchParams.get('realmId')
 
   if (!code || !realmId) {
-    return NextResponse.redirect('/manager?qb=error')
+    return NextResponse.redirect('https://newbury-floral-farms-iamtheg805s-projects.vercel.app/manager?qb=error')
   }
 
   const clientId = process.env.QUICKBOOKS_CLIENT_ID
   const clientSecret = process.env.QUICKBOOKS_CLIENT_SECRET
   const redirectUri = 'https://newbury-floral-farms-iamtheg805s-projects.vercel.app/api/quickbooks/callback'
-
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
 
   const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
@@ -29,7 +28,6 @@ export async function GET(request: NextRequest) {
   })
 
   const tokens = await tokenResponse.json()
-
   console.log('QuickBooks tokens:', tokens)
   console.log('Realm ID:', realmId)
 
