@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await fetch(
-      `https://sandbox-quickbooks.api.intuit.com/v3/company/${qbTokens.realm_id}/invoice`,
+      `https://quickbooks.api.intuit.com/v3/company/${qbTokens.realm_id}/invoice`,
       {
         method: 'POST',
         headers: {
