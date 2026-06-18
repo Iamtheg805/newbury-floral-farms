@@ -47,6 +47,7 @@ export default function Orders() {
   const [items, setItems] = useState([{ name: flowerOptions[0].name, price: flowerOptions[0].price, unit: flowerOptions[0].unit, qty: 1, sub: flowerOptions[0].price }])
   const [feedback, setFeedback] = useState('')
   const [printed, setPrinted] = useState(false)
+  const [invoiceStatus, setInvoiceStatus] = useState('')
 
   function handleCustomerChange(name: string) {
     setCustomer(name)
@@ -100,11 +101,30 @@ export default function Orders() {
   const batchTotal = batch.reduce((s, o) => s + o.total, 0)
   const batchComm = batchTotal * 0.07
 
+  async function createInvoices() {
+    try {
+      setInvoiceStatus('Creating QuickBooks invoices...')
+      const response = await fetch('/api/quickbooks/invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orders: batch }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        setInvoiceStatus(`✓ ${result.invoices} QuickBooks invoice${result.invoices > 1 ? 's' : ''} created!`)
+      } else {
+        setInvoiceStatus('QuickBooks not connected — invoices skipped.')
+      }
+    } catch {
+      setInvoiceStatus('Could not create invoices — check QuickBooks connection.')
+    }
+  }
+
   function printLabels() {
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    
+
     const labelsHTML = batch.map(o => `
-      <div style="width:4in;height:6in;padding:0.2in;font-family:monospace;font-size:9px;color:#111;page-break-after:always;box-sizing:border-box;border:1px solid #eee;">
+      <div style="width:4in;height:6in;padding:0.2in;font-family:monospace;font-size:9px;color:#111;page-break-after:always;box-sizing:border-box;">
         <div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:8px;">
           <div>
             <div style="font-weight:bold;font-size:12px;">NEWBURY FLORAL FARMS</div>
@@ -137,7 +157,7 @@ export default function Orders() {
           </div>
         </div>
         <div style="border-top:2px solid #111;padding-top:8px;">
-          <div style="display:flex;justify-content:space-between;font-size:10px;">
+          <div style="font-size:10px;display:flex;justify-content:space-between;">
             <span>${o.id}</span><span>${date}</span>
           </div>
         </div>
@@ -147,7 +167,7 @@ export default function Orders() {
     const fullHTML = `<!DOCTYPE html>
 <html>
 <head>
-<title>Labels</title>
+<title>Newbury Floral Farms — Labels</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: white; }
@@ -162,9 +182,7 @@ body { background: white; }
     const printWindow = window.open(url)
     if (printWindow) {
       printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print()
-        }, 500)
+        setTimeout(() => { printWindow.print() }, 500)
       }
     }
     setPrinted(true)
@@ -399,17 +417,24 @@ body { background: white; }
                 </div>
               ))}
             </div>
+
+            {invoiceStatus && (
+              <div style={{ marginBottom: '1rem', background: invoiceStatus.startsWith('✓') ? '#EAF3DE' : '#f9f9f8', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: invoiceStatus.startsWith('✓') ? '#3B6D11' : '#666' }}>
+                {invoiceStatus}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
               {!printed ? (
-                <button onClick={printLabels} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
+                <button onClick={() => { createInvoices(); printLabels() }} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
                   🖨️ Print all {batch.length} labels
                 </button>
               ) : (
                 <div style={{ background: '#EAF3DE', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#3B6D11' }}>
-                  ✓ {batch.length} labels sent to printer! {batch.length} QuickBooks invoices created.
+                  ✓ {batch.length} labels sent to printer!
                 </div>
               )}
-              <button onClick={() => { setBatch([]); setStep('add'); setPrinted(false) }} style={{ padding: '9px 14px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
+              <button onClick={() => { setBatch([]); setStep('add'); setPrinted(false); setInvoiceStatus('') }} style={{ padding: '9px 14px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
                 ✓ Done — start new batch
               </button>
             </div>
