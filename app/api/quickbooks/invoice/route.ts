@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
   }
 
   const results = []
+  const errors = []
 
   for (const order of orders) {
     const invoice = {
@@ -50,8 +51,12 @@ export async function POST(request: NextRequest) {
     )
 
     const result = await response.json()
-    results.push(result)
+    if (result.Fault) {
+      errors.push(result.Fault)
+    } else {
+      results.push(result)
+    }
   }
 
-  return NextResponse.json({ success: true, invoices: results.length })
+  return NextResponse.json({ success: true, invoices: results.length, errors })
 }
