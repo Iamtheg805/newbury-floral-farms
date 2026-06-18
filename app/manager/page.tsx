@@ -86,7 +86,7 @@ function OverviewTab({ setActiveTab }: { setActiveTab: (t: string) => void }) {
 
   return (
     <div>
-      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Good morning, Rosa 👋</div>
+      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Good morning, Rosa 👋</div><a href="/api/quickbooks/connect" style={{ display: "inline-block", padding: "8px 16px", background: "#2CA01C", color: "white", borderRadius: "8px", fontSize: "12px", textDecoration: "none", fontWeight: "500", marginBottom: "1rem" }}>Connect QuickBooks</a>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
         {[
           { label: 'Total revenue (Jun)', value: `$${totalRevenue.toLocaleString()}`, sub: '+22% vs May', subColor: '#3B6D11' },
