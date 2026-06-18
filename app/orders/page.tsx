@@ -110,7 +110,7 @@ export default function Orders() {
         body: JSON.stringify({ orders: batch }),
       })
       const result = await response.json()
-      if (result.success) {
+      console.log('QB Result:', JSON.stringify(result))if (result.success) {
         setInvoiceStatus(`✓ ${result.invoices} QuickBooks invoice${result.invoices > 1 ? 's' : ''} created!`)
       } else {
         setInvoiceStatus('QuickBooks not connected — invoices skipped.')
