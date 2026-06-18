@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { supabase } from './supabase'
+import { supabase } from './supabase.js'
 
 export default function Home() {
   const [email, setEmail] = useState('')
@@ -25,6 +25,21 @@ export default function Home() {
 
     if (data.user) {
       const role = data.user.user_metadata?.role
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.user.id)
+        .single()
+
+      const name = profile?.full_name || email.split('@')[0]
+      const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase()
+
+      localStorage.setItem('user_name', name)
+      localStorage.setItem('user_initials', initials)
+      localStorage.setItem('user_email', email.toLowerCase())
+      localStorage.setItem('user_role', role || 'rep')
+
       if (role === 'manager') {
         window.location.href = '/manager'
       } else {
