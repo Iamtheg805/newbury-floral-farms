@@ -10,14 +10,6 @@ const navItems = [
   { label: 'My Commission', href: '/commission', active: false },
 ]
 
-const customerData: { [key: string]: { addr: string; phone: string } } = {
-  'Maria Gonzalez': { addr: '4821 Sunset Blvd, Los Angeles, CA 90028', phone: '(323) 555-0147' },
-  'James Thornton': { addr: '390 Harbor Dr, Anaheim, CA 92805', phone: '(714) 555-0288' },
-  'Priya Patel': { addr: '12 Oak Lane, Pasadena, CA 91101', phone: '(626) 555-0391' },
-  'Carlos Ruiz': { addr: '88 Main St, Compton, CA 90220', phone: '(213) 555-0054' },
-  'Aisha Nwosu': { addr: '500 Commerce Ave, Burbank, CA 91502', phone: '(818) 555-0762' },
-}
-
 const flowerOptions = [
   { name: 'Roses (Red Freedom)', price: 28, unit: 'bucket' },
   { name: 'Roses (White Akito)', price: 26, unit: 'bucket' },
@@ -34,12 +26,14 @@ const carriers = ['Armellini', 'Prime', 'Florida Beauty', 'Tawjo', 'Growers', 'F
 type Item = { name: string; price: number; unit: string; qty: number; sub: number }
 type Order = { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: Item[]; total: number }
 type TodayOrder = { id: string; customer: string; carrier: string; truck: string; total: number; created_at: string; items: { name: string; qty: number; unit: string }[] }
+type CustomerOption = { id: number; name: string; phone: string; adress: string; city: string; state: string; zip: string }
 
 let orderCounter = 20414
 
 export default function Orders() {
   const [step, setStep] = useState<'add' | 'review' | 'print'>('add')
   const [batch, setBatch] = useState<Order[]>([])
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [customer, setCustomer] = useState('')
   const [addr, setAddr] = useState('')
   const [phone, setPhone] = useState('')
@@ -55,6 +49,12 @@ export default function Orders() {
   useEffect(() => {
     const repId = localStorage.getItem('user_id') || ''
     if (!repId) { setLoadingToday(false); return }
+
+    fetch(`/api/customers/list?rep_id=${repId}`)
+      .then(r => r.json())
+      .then(data => setCustomers(data.customers || []))
+      .catch(() => setCustomers([]))
+
     fetch(`/api/orders/today?rep_id=${repId}`)
       .then(r => r.json())
       .then(data => {
@@ -66,9 +66,11 @@ export default function Orders() {
 
   function handleCustomerChange(name: string) {
     setCustomer(name)
-    if (customerData[name]) {
-      setAddr(customerData[name].addr)
-      setPhone(customerData[name].phone)
+    const found = customers.find(c => c.name === name)
+    if (found) {
+      const fullAddr = [found.adress, found.city, found.state].filter(Boolean).join(', ') + (found.zip ? ` ${found.zip}` : '')
+      setAddr(fullAddr)
+      setPhone(found.phone || '')
     }
   }
 
@@ -235,12 +237,13 @@ body { background: white; }
   }
 
   function reprintLabel(o: TodayOrder) {
-    const known = customerData[o.customer]
+    const found = customers.find(c => c.name === o.customer)
+    const fullAddr = found ? [found.adress, found.city, found.state].filter(Boolean).join(', ') + (found.zip ? ` ${found.zip}` : '') : 'Address on file'
     const labelOrder = {
       id: o.id,
       customer: o.customer,
-      addr: known?.addr || 'Address on file',
-      phone: known?.phone || '',
+      addr: fullAddr,
+      phone: found?.phone || '',
       carrier: o.carrier,
       truck: o.truck,
       items: o.items.map(it => ({ name: it.name, qty: it.qty })),
@@ -329,10 +332,16 @@ body { background: white; }
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Customer</div>
                 <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Select customer</label>
-                <select value={customer} onChange={e => handleCustomerChange(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', marginBottom: '10px', color: '#111' }}>
-                  <option value=''>— choose customer —</option>
-                  {Object.keys(customerData).map(c => <option key={c}>{c}</option>)}
-                </select>
+                {customers.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: '#888', background: '#f9f9f8', padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
+                    No customers yet. <a href="/customers" style={{ color: '#185FA5' }}>Add one first →</a>
+                  </div>
+                ) : (
+                  <select value={customer} onChange={e => handleCustomerChange(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', marginBottom: '10px', color: '#111' }}>
+                    <option value=''>— choose customer —</option>
+                    {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  </select>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
                     <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Address</label>
