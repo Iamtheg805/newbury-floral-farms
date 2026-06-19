@@ -14,6 +14,7 @@ export default function Home() {
           localStorage.setItem('user_name', name)
           localStorage.setItem('user_initials', initials)
           localStorage.setItem('user_role', role)
+          localStorage.setItem('user_id', d.user?.id || '')
           window.location.href = role === 'manager' ? '/manager' : '/dashboard'
         } else {
           alert('Invalid email or password')
