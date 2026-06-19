@@ -4,12 +4,35 @@ import { useEffect, useState } from 'react'
 export default function Dashboard() {
   const [userName, setUserName] = useState('there')
   const [userInitials, setUserInitials] = useState('?')
+  const [revenue, setRevenue] = useState<number | null>(null)
+  const [orderCount, setOrderCount] = useState<number | null>(null)
+  const [customerCount, setCustomerCount] = useState<number | null>(null)
 
   useEffect(() => {
     const name = localStorage.getItem('user_name') || 'there'
     const initials = localStorage.getItem('user_initials') || name.split(' ').map(w => w[0]).join('').toUpperCase() || '?'
+    const userId = localStorage.getItem('user_id') || ''
     setUserName(name)
     setUserInitials(initials)
+
+    if (userId) {
+      fetch(`/api/stats?rep_id=${userId}`)
+        .then(r => r.json())
+        .then(data => {
+          setRevenue(data.revenue)
+          setOrderCount(data.orderCount)
+          setCustomerCount(data.customers)
+        })
+        .catch(() => {
+          setRevenue(0)
+          setOrderCount(0)
+          setCustomerCount(0)
+        })
+    } else {
+      setRevenue(0)
+      setOrderCount(0)
+      setCustomerCount(0)
+    }
   }, [])
 
   const navItems = [
@@ -22,6 +45,9 @@ export default function Dashboard() {
   ]
 
   const firstName = userName.split(' ')[0]
+  const commission = (revenue || 0) * 0.07
+  const revenueGoal = 55000
+  const orderGoal = 30
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
@@ -56,10 +82,10 @@ export default function Dashboard() {
         {/* Metrics */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
           {[
-            { label: 'Revenue (Jun)', value: '$42,180', sub: '+18% vs last month', subColor: '#3B6D11' },
-            { label: 'Open quotes', value: '6', sub: '$28,400 potential', subColor: '#666' },
-            { label: 'Orders this month', value: '24', sub: 'Goal: 30', subColor: '#666' },
-            { label: 'My customers', value: '18', sub: '3 need follow-up', subColor: '#666' },
+            { label: 'Revenue (this month)', value: revenue === null ? '...' : `$${revenue.toLocaleString()}`, sub: `Goal: $${revenueGoal.toLocaleString()}`, subColor: '#666' },
+            { label: 'Commission earned', value: revenue === null ? '...' : `$${Math.round(commission).toLocaleString()}`, sub: '7% of revenue', subColor: '#3B6D11' },
+            { label: 'Orders this month', value: orderCount === null ? '...' : orderCount.toString(), sub: `Goal: ${orderGoal}`, subColor: '#666' },
+            { label: 'Customers served', value: customerCount === null ? '...' : customerCount.toString(), sub: 'Unique this month', subColor: '#666' },
           ].map(m => (
             <div key={m.label} style={{ background: '#ffffff', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>{m.label}</div>
@@ -72,11 +98,10 @@ export default function Dashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
           {/* Goal progress */}
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Goal progress — June</div>
+            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Goal progress — this month</div>
             {[
-              { label: 'Revenue', val: 42180, max: 55000, color: '#185FA5' },
-              { label: 'Orders', val: 24, max: 30, color: '#3B6D11' },
-              { label: 'New customers', val: 2, max: 5, color: '#854F0B' },
+              { label: 'Revenue', val: revenue || 0, max: revenueGoal, color: '#185FA5' },
+              { label: 'Orders', val: orderCount || 0, max: orderGoal, color: '#3B6D11' },
             ].map(g => {
               const pct = Math.round(g.val / g.max * 100)
               return (
@@ -91,49 +116,58 @@ export default function Dashboard() {
                 </div>
               )
             })}
-            <div style={{ background: '#E6F1FB', borderRadius: '8px', padding: '8px 10px', fontSize: '11px', color: '#0C447C', marginTop: '4px' }}>
-              ⚡ Close 3 more orders avg $4,273 to unlock 10% tier — extra <strong>$1,282</strong> this month.
-            </div>
+            {revenue !== null && revenue < revenueGoal && (
+              <div style={{ background: '#E6F1FB', borderRadius: '8px', padding: '8px 10px', fontSize: '11px', color: '#0C447C', marginTop: '4px' }}>
+                ⚡ You need <strong>${(revenueGoal - revenue).toLocaleString()}</strong> more to hit your monthly goal!
+              </div>
+            )}
+            {revenue !== null && revenue >= revenueGoal && (
+              <div style={{ background: '#EAF3DE', borderRadius: '8px', padding: '8px 10px', fontSize: '11px', color: '#3B6D11', marginTop: '4px' }}>
+                🎉 You hit your monthly revenue goal!
+              </div>
+            )}
           </div>
 
-          {/* Follow up */}
+          {/* Quick actions */}
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Customers needing follow-up</div>
+            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Quick actions</div>
             {[
-              { name: 'Maria Gonzalez', days: '12 days ago', color: '#854F0B' },
-              { name: 'James Thornton', days: '21 days ago', color: '#A32D2D' },
-              { name: 'Carlos Ruiz', days: '97 days ago', color: '#A32D2D' },
-            ].map(c => (
-              <div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '0.5px solid #f0f0ee' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{c.name}</div>
-                  <div style={{ fontSize: '11px', color: c.color }}>{c.days}</div>
-                </div>
-                <button style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '6px', border: '0.5px solid #e5e5e3', cursor: 'pointer', background: 'transparent', color: '#333' }}>Follow up</button>
-              </div>
+              { label: '🌸 Add new order', href: '/orders', color: '#185FA5', bg: '#E6F1FB' },
+              { label: '👥 View my customers', href: '/customers', color: '#3B6D11', bg: '#EAF3DE' },
+              { label: '📋 Create a quote', href: '/quotes', color: '#854F0B', bg: '#FAEEDA' },
+              { label: '💰 My commission', href: '/commission', color: '#3C3489', bg: '#EEEDFE' },
+            ].map(a => (
+              <a key={a.label} href={a.href} style={{ display: 'block', padding: '10px 12px', borderRadius: '8px', marginBottom: '6px', background: a.bg, color: a.color, textDecoration: 'none', fontSize: '12px', fontWeight: '500' }}>
+                {a.label}
+              </a>
             ))}
           </div>
         </div>
 
-        {/* Leaderboard */}
+        {/* Recent orders */}
         <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Leaderboard — June</div>
-          {[
-            { name: 'Sarah Lee', initials: 'SL', revenue: 54200, rate: '10%', bg: '#FAEEDA', tc: '#633806', rank: '1st' },
-            { name: 'Mike Kim', initials: 'MK', revenue: 48700, rate: '10%', bg: '#F1EFE8', tc: '#444441', rank: '2nd' },
-            { name: 'Jake Rivera', initials: 'JR', revenue: 42180, rate: '7%', bg: '#E6F1FB', tc: '#0C447C', rank: '3rd' },
-            { name: 'Dana Perez', initials: 'DP', revenue: 38900, rate: '7%', bg: '#EEEDFE', tc: '#3C3489', rank: '4th' },
-            { name: 'Tom Walsh', initials: 'TW', revenue: 29400, rate: '7%', bg: '#E1F5EE', tc: '#085041', rank: '5th' },
-          ].map((r, i) => (
-            <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '8px', marginBottom: '4px', background: r.name === userName ? '#E6F1FB' : 'transparent' }}>
-              <div style={{ width: '24px', fontSize: '12px', fontWeight: '500', color: i === 0 ? '#BA7517' : '#666' }}>{r.rank}</div>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: r.bg, color: r.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{r.initials}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '12px', fontWeight: '500', color: r.name === userName ? '#0C447C' : '#111' }}>{r.name}{r.name === userName ? ' (you)' : ''}</div>
-                <div style={{ fontSize: '11px', color: '#666' }}>${r.revenue.toLocaleString()} · {r.rate} tier</div>
-              </div>
+          <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>This month at a glance</div>
+          {revenue === 0 && orderCount === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2rem 0', color: '#888' }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>🌸</div>
+              <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginBottom: '4px' }}>No orders yet this month</div>
+              <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>Start adding orders to see your stats here.</div>
+              <a href="/orders" style={{ padding: '8px 16px', background: '#185FA5', color: 'white', borderRadius: '8px', fontSize: '12px', textDecoration: 'none' }}>Add first order →</a>
             </div>
-          ))}
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              {[
+                { label: 'Total revenue', value: `$${(revenue || 0).toLocaleString()}` },
+                { label: 'Commission at 7%', value: `$${Math.round(commission).toLocaleString()}` },
+                { label: 'Orders placed', value: (orderCount || 0).toString() },
+              ].map(m => (
+                <div key={m.label} style={{ background: '#f9f9f8', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
+                  <div style={{ fontSize: '20px', fontWeight: '600', color: '#111' }}>{m.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
