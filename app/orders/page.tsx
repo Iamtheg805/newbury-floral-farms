@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', active: false },
@@ -33,6 +33,7 @@ const carriers = ['Armellini', 'Prime', 'Florida Beauty', 'Tawjo', 'Growers', 'F
 
 type Item = { name: string; price: number; unit: string; qty: number; sub: number }
 type Order = { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: Item[]; total: number }
+type TodayOrder = { id: string; customer: string; carrier: string; truck: string; total: number; created_at: string; items: { name: string; qty: number; unit: string }[] }
 
 let orderCounter = 20414
 
@@ -48,6 +49,20 @@ export default function Orders() {
   const [feedback, setFeedback] = useState('')
   const [printed, setPrinted] = useState(false)
   const [invoiceStatus, setInvoiceStatus] = useState('')
+  const [todaysOrders, setTodaysOrders] = useState<TodayOrder[]>([])
+  const [loadingToday, setLoadingToday] = useState(true)
+
+  useEffect(() => {
+    const repId = localStorage.getItem('user_id') || ''
+    if (!repId) { setLoadingToday(false); return }
+    fetch(`/api/orders/today?rep_id=${repId}`)
+      .then(r => r.json())
+      .then(data => {
+        setTodaysOrders(data.orders || [])
+        setLoadingToday(false)
+      })
+      .catch(() => setLoadingToday(false))
+  }, [step])
 
   function handleCustomerChange(name: string) {
     setCustomer(name)
@@ -150,11 +165,11 @@ export default function Orders() {
     }
   }
 
-  function printLabels() {
+  function buildLabelHTML(labelOrders: { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: { name: string; qty: number }[] }[]) {
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const repName = localStorage.getItem('user_name') || 'Rep'
 
-    const labelsHTML = batch.map(o => `
+    const labelsHTML = labelOrders.map(o => `
       <div style="width:4in;height:6in;padding:0.2in;font-family:monospace;font-size:9px;color:#111;page-break-after:always;box-sizing:border-box;">
         <div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:8px;">
           <div>
@@ -191,7 +206,7 @@ export default function Orders() {
       </div>
     `).join('')
 
-    const fullHTML = `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html>
 <head>
 <title>Newbury Floral Farms — Labels</title>
@@ -203,7 +218,11 @@ body { background: white; }
 </head>
 <body>${labelsHTML}</body>
 </html>`
+  }
 
+  function printLabels() {
+    const labelOrders = batch.map(o => ({ id: o.id, customer: o.customer, addr: o.addr, phone: o.phone, carrier: o.carrier, truck: o.truck, items: o.items.map(it => ({ name: it.name, qty: it.qty })) }))
+    const fullHTML = buildLabelHTML(labelOrders)
     const blob = new Blob([fullHTML], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const printWindow = window.open(url)
@@ -213,6 +232,28 @@ body { background: white; }
       }
     }
     setPrinted(true)
+  }
+
+  function reprintLabel(o: TodayOrder) {
+    const known = customerData[o.customer]
+    const labelOrder = {
+      id: o.id,
+      customer: o.customer,
+      addr: known?.addr || 'Address on file',
+      phone: known?.phone || '',
+      carrier: o.carrier,
+      truck: o.truck,
+      items: o.items.map(it => ({ name: it.name, qty: it.qty })),
+    }
+    const fullHTML = buildLabelHTML([labelOrder])
+    const blob = new Blob([fullHTML], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const printWindow = window.open(url)
+    if (printWindow) {
+      printWindow.onload = () => {
+        setTimeout(() => { printWindow.print() }, 500)
+      }
+    }
   }
 
   return (
@@ -256,6 +297,30 @@ body { background: white; }
             </div>
           ))}
         </div>
+
+        {/* Today's orders — reprint panel */}
+        {step === 'add' && !loadingToday && todaysOrders.length > 0 && (
+          <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
+            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+              Today&apos;s orders — reprint a label if needed
+            </div>
+            <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '10px' }}>This list resets at midnight — only today&apos;s orders can be reprinted here.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+              {todaysOrders.map(o => (
+                <div key={o.id} style={{ background: '#f9f9f8', borderRadius: '8px', padding: '10px', border: '0.5px solid #e5e5e3' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{o.customer}</div>
+                    <div style={{ fontSize: '10px', color: '#888' }}>{new Date(o.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace', marginBottom: '6px' }}>{o.id} · {o.carrier}</div>
+                  <button onClick={() => reprintLabel(o)} style={{ width: '100%', padding: '6px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
+                    🖨️ Reprint label
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* STEP 1 - Add orders */}
         {step === 'add' && (
