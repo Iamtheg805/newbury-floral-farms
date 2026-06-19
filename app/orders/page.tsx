@@ -10,23 +10,13 @@ const navItems = [
   { label: 'My Commission', href: '/commission', active: false },
 ]
 
-const flowerOptions = [
-  { name: 'Roses (Red Freedom)', price: 28, unit: 'bucket' },
-  { name: 'Roses (White Akito)', price: 26, unit: 'bucket' },
-  { name: 'Sunflowers', price: 18, unit: 'bunch' },
-  { name: 'Tulips', price: 14, unit: 'bunch' },
-  { name: 'Lilies', price: 32, unit: 'bucket' },
-  { name: 'Hydrangeas', price: 38, unit: 'bucket' },
-  { name: 'Gerbera Daisies', price: 16, unit: 'bunch' },
-  { name: 'Alstroemeria', price: 11, unit: 'bunch' },
-]
-
 const carriers = ['Armellini', 'Prime', 'Florida Beauty', 'Tawjo', 'Growers', 'FedEx']
 
 type Item = { name: string; price: number; unit: string; qty: number; sub: number }
 type Order = { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: Item[]; total: number }
 type TodayOrder = { id: string; customer: string; carrier: string; truck: string; total: number; created_at: string; items: { name: string; qty: number; unit: string }[] }
 type CustomerOption = { id: number; name: string; phone: string; adress: string; city: string; state: string; zip: string }
+type FlowerOption = { id: number; name: string; variety: string; unit: string; price: number }
 
 let orderCounter = 20414
 
@@ -34,20 +24,37 @@ export default function Orders() {
   const [step, setStep] = useState<'add' | 'review' | 'print'>('add')
   const [batch, setBatch] = useState<Order[]>([])
   const [customers, setCustomers] = useState<CustomerOption[]>([])
+  const [flowerOptions, setFlowerOptions] = useState<FlowerOption[]>([])
   const [customer, setCustomer] = useState('')
   const [addr, setAddr] = useState('')
   const [phone, setPhone] = useState('')
   const [carrier, setCarrier] = useState(carriers[0])
   const [truck, setTruck] = useState('TRK-0482-W')
-  const [items, setItems] = useState([{ name: flowerOptions[0].name, price: flowerOptions[0].price, unit: flowerOptions[0].unit, qty: 1, sub: flowerOptions[0].price }])
+  const [items, setItems] = useState<Item[]>([])
   const [feedback, setFeedback] = useState('')
   const [printed, setPrinted] = useState(false)
   const [invoiceStatus, setInvoiceStatus] = useState('')
   const [todaysOrders, setTodaysOrders] = useState<TodayOrder[]>([])
   const [loadingToday, setLoadingToday] = useState(true)
 
+  function blankItem(opts: FlowerOption[]): Item {
+    if (opts.length === 0) return { name: '', price: 0, unit: 'bunch', qty: 1, sub: 0 }
+    const f = opts[0]
+    return { name: `${f.name} (${f.variety})`, price: f.price, unit: f.unit, qty: 1, sub: f.price }
+  }
+
   useEffect(() => {
     const repId = localStorage.getItem('user_id') || ''
+
+    fetch('/api/flowers/list')
+      .then(r => r.json())
+      .then(data => {
+        const opts: FlowerOption[] = (data.flowers || []).map((f: { id: number; name: string; variety: string; unit: string; price: number }) => ({ id: f.id, name: f.name, variety: f.variety, unit: f.unit, price: f.price }))
+        setFlowerOptions(opts)
+        setItems([blankItem(opts)])
+      })
+      .catch(() => setFlowerOptions([]))
+
     if (!repId) { setLoadingToday(false); return }
 
     fetch(`/api/customers/list?rep_id=${repId}`)
@@ -77,7 +84,7 @@ export default function Orders() {
   function handleItemChange(index: number, field: string, value: string) {
     const updated = [...items]
     if (field === 'name') {
-      const flower = flowerOptions.find(f => f.name === value)!
+      const flower = flowerOptions.find(f => `${f.name} (${f.variety})` === value)!
       updated[index] = { ...updated[index], name: value, price: flower.price, unit: flower.unit, sub: flower.price * updated[index].qty }
     } else if (field === 'qty') {
       const qty = parseInt(value) || 1
@@ -90,7 +97,7 @@ export default function Orders() {
   }
 
   function addItem() {
-    setItems([...items, { name: flowerOptions[0].name, price: flowerOptions[0].price, unit: flowerOptions[0].unit, qty: 1, sub: flowerOptions[0].price }])
+    setItems([...items, blankItem(flowerOptions)])
   }
 
   function removeItem(index: number) {
@@ -107,7 +114,7 @@ export default function Orders() {
     setBatch(prev => [...prev, order])
     setFeedback(`✓ ${customer} added to batch!`)
     setCustomer(''); setAddr(''); setPhone(''); setTruck('TRK-0482-W')
-    setItems([{ name: flowerOptions[0].name, price: flowerOptions[0].price, unit: flowerOptions[0].unit, qty: 1, sub: flowerOptions[0].price }])
+    setItems([blankItem(flowerOptions)])
     setTimeout(() => setFeedback(''), 3000)
   }
 
@@ -356,21 +363,29 @@ body { background: white; }
 
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Items</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 55px 80px 70px 24px', gap: '5px', paddingBottom: '6px', borderBottom: '0.5px solid #f0f0ee', marginBottom: '8px' }}>
-                  {['Flower', 'Qty', 'Price/unit', 'Subtotal', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
-                </div>
-                {items.map((item, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 55px 80px 70px 24px', gap: '5px', marginBottom: '6px', alignItems: 'center' }}>
-                    <select value={item.name} onChange={e => handleItemChange(i, 'name', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
-                      {flowerOptions.map(f => <option key={f.name}>{f.name}</option>)}
-                    </select>
-                    <input type="number" value={item.qty} min={1} onChange={e => handleItemChange(i, 'qty', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
-                    <input type="number" value={item.price} min={0} step={0.01} onChange={e => handleItemChange(i, 'price', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
-                    <input value={`$${item.sub.toFixed(2)}`} readOnly style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#666', background: '#f9f9f8' }} />
-                    <button onClick={() => removeItem(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '16px', color: '#888' }}>×</button>
+                {flowerOptions.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: '#888', background: '#f9f9f8', padding: '10px', borderRadius: '8px' }}>
+                    No flowers in inventory yet. Ask your manager to add some.
                   </div>
-                ))}
-                <button onClick={addItem} style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '0.5px solid #e5e5e3', background: 'transparent', cursor: 'pointer', color: '#444', marginTop: '4px' }}>+ Add item</button>
+                ) : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 55px 80px 70px 24px', gap: '5px', paddingBottom: '6px', borderBottom: '0.5px solid #f0f0ee', marginBottom: '8px' }}>
+                      {['Flower', 'Qty', 'Price/unit', 'Subtotal', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
+                    </div>
+                    {items.map((item, i) => (
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 55px 80px 70px 24px', gap: '5px', marginBottom: '6px', alignItems: 'center' }}>
+                        <select value={item.name} onChange={e => handleItemChange(i, 'name', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
+                          {flowerOptions.map(f => <option key={f.id}>{f.name} ({f.variety})</option>)}
+                        </select>
+                        <input type="number" value={item.qty} min={1} onChange={e => handleItemChange(i, 'qty', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
+                        <input type="number" value={item.price} min={0} step={0.01} onChange={e => handleItemChange(i, 'price', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
+                        <input value={`$${item.sub.toFixed(2)}`} readOnly style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#666', background: '#f9f9f8' }} />
+                        <button onClick={() => removeItem(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '16px', color: '#888' }}>×</button>
+                      </div>
+                    ))}
+                    <button onClick={addItem} style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '0.5px solid #e5e5e3', background: 'transparent', cursor: 'pointer', color: '#444', marginTop: '4px' }}>+ Add item</button>
+                  </>
+                )}
               </div>
 
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
@@ -397,7 +412,7 @@ body { background: white; }
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button onClick={addToBatch} style={{ padding: '8px 16px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>+ Add to batch</button>
-                    <button onClick={() => { setCustomer(''); setAddr(''); setPhone(''); setItems([{ name: flowerOptions[0].name, price: flowerOptions[0].price, unit: flowerOptions[0].unit, qty: 1, sub: flowerOptions[0].price }]) }} style={{ padding: '8px 12px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Clear</button>
+                    <button onClick={() => { setCustomer(''); setAddr(''); setPhone(''); setItems([blankItem(flowerOptions)]) }} style={{ padding: '8px 12px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Clear</button>
                   </div>
                 </div>
                 {feedback && <div style={{ marginTop: '8px', fontSize: '11px', color: feedback.startsWith('✓') ? '#3B6D11' : '#A32D2D' }}>{feedback}</div>}
