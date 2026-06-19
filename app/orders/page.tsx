@@ -101,6 +101,35 @@ export default function Orders() {
   const batchTotal = batch.reduce((s, o) => s + o.total, 0)
   const batchComm = batchTotal * 0.07
 
+  async function saveOrders() {
+    try {
+      const repId = localStorage.getItem('user_id') || ''
+      for (const order of batch) {
+        await fetch('/api/orders/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_number: order.id,
+            customer_name: order.customer,
+            carrier: order.carrier,
+            truck_id: order.truck,
+            total: order.total,
+            rep_id: repId,
+            items: order.items.map(it => ({
+              name: it.name,
+              qty: it.qty,
+              price: it.price,
+              sub: it.sub,
+              unit: it.unit,
+            })),
+          }),
+        })
+      }
+    } catch (e) {
+      console.log('Could not save orders:', e)
+    }
+  }
+
   async function createInvoices() {
     try {
       setInvoiceStatus('Creating QuickBooks invoices...')
@@ -122,6 +151,7 @@ export default function Orders() {
 
   function printLabels() {
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const repName = localStorage.getItem('user_name') || 'Rep'
 
     const labelsHTML = batch.map(o => `
       <div style="width:4in;height:6in;padding:0.2in;font-family:monospace;font-size:9px;color:#111;page-break-after:always;box-sizing:border-box;">
@@ -135,7 +165,7 @@ export default function Orders() {
           <div style="text-align:right;">
             <div style="font-weight:bold;font-size:28px;color:#111;">${o.carrier}</div>
             <div style="font-size:11px;">${o.truck}</div>
-            <div style="font-size:10px;">Rep: Jake Rivera</div>
+            <div style="font-size:10px;">Rep: ${repName}</div>
           </div>
         </div>
         <div style="font-size:8px;color:#888;margin-bottom:3px;">SHIP TO</div>
@@ -426,7 +456,7 @@ body { background: white; }
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
               {!printed ? (
-                <button onClick={() => { createInvoices(); printLabels() }} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
+                <button onClick={() => { saveOrders(); createInvoices(); printLabels() }} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
                   🖨️ Print all {batch.length} labels
                 </button>
               ) : (
