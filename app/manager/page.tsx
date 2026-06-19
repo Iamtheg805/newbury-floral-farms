@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 type LeaderboardRep = { id: string; name: string; revenue: number; orders: number; rate: number; commission: number }
 type RecentOrder = { time: string; rep: string; customer: string; total: string; status: string; carrier: string }
+type Flower = { id: number; name: string; variety: string; color: string; unit: string; stems_per_unit: number; morning_qty: number; current_stock: number; price: number; active: boolean }
 
 const colors = [
   { bg: '#FAEEDA', tc: '#633806' },
@@ -65,7 +66,7 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab:
   )
 }
 
-function OverviewTab({ leaderboard, recentOrders, loading, setActiveTab }: { leaderboard: LeaderboardRep[]; recentOrders: RecentOrder[]; loading: boolean; setActiveTab: (t: string) => void }) {
+function OverviewTab({ leaderboard, recentOrders, loading }: { leaderboard: LeaderboardRep[]; recentOrders: RecentOrder[]; loading: boolean }) {
   const totalRevenue = leaderboard.reduce((s, r) => s + r.revenue, 0)
   const totalComm = leaderboard.reduce((s, r) => s + r.commission, 0)
   const totalOrders = leaderboard.reduce((s, r) => s + r.orders, 0)
@@ -204,34 +205,111 @@ function RepsTab({ leaderboard, loading }: { leaderboard: LeaderboardRep[]; load
 }
 
 function InventoryTab() {
-  const [flowers, setFlowers] = useState([
-    { id: 1, name: 'Roses', variety: 'Red Freedom', color: '#D4537E', unit: 'bucket', qty: 24, stock: 18, price: 28 },
-    { id: 2, name: 'Roses', variety: 'White Akito', color: '#B4B2A9', unit: 'bucket', qty: 20, stock: 12, price: 26 },
-    { id: 3, name: 'Sunflowers', variety: 'ProCut Orange', color: '#EF9F27', unit: 'bunch', qty: 30, stock: 30, price: 18 },
-    { id: 4, name: 'Tulips', variety: 'Pink Impression', color: '#ED93B1', unit: 'bunch', qty: 40, stock: 5, price: 14 },
-    { id: 5, name: 'Lilies', variety: 'Stargazer', color: '#F0997B', unit: 'bucket', qty: 15, stock: 8, price: 32 },
-    { id: 6, name: 'Carnations', variety: 'Mixed Colors', color: '#9FE1CB', unit: 'bunch', qty: 25, stock: 0, price: 12 },
-    { id: 7, name: 'Hydrangeas', variety: 'Blue Hortensia', color: '#AFA9EC', unit: 'bucket', qty: 18, stock: 14, price: 38 },
-    { id: 8, name: 'Gerbera Daisies', variety: 'Rainbow Mix', color: '#D85A30', unit: 'bunch', qty: 25, stock: 22, price: 16 },
-  ])
+  const [flowers, setFlowers] = useState<Flower[]>([])
+  const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
-  const [newFlower, setNewFlower] = useState({ name: '', variety: '', unit: 'bucket', qty: 20, price: 0 })
+  const [newFlower, setNewFlower] = useState({ name: '', variety: '', unit: 'bucket', morning_qty: 20, price: 0 })
   const [feedback, setFeedback] = useState('')
+  const [edits, setEdits] = useState<{ [key: number]: { morning_qty: number; price: number } }>({})
 
-  function addFlower() {
+  function loadFlowers() {
+    setLoading(true)
+    fetch('/api/flowers/list')
+      .then(r => r.json())
+      .then(data => {
+        setFlowers(data.flowers || [])
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }
+
+  useEffect(() => { loadFlowers() }, [])
+
+  async function addFlower() {
     if (!newFlower.name || !newFlower.variety) { setFeedback('Please fill in name and variety.'); return }
     const colors2 = ['#D4537E', '#EF9F27', '#AFA9EC', '#9FE1CB', '#F0997B', '#ED93B1']
-    setFlowers(prev => [...prev, { id: Date.now(), name: newFlower.name, variety: newFlower.variety, color: colors2[prev.length % colors2.length], unit: newFlower.unit, qty: newFlower.qty, stock: newFlower.qty, price: newFlower.price }])
-    setNewFlower({ name: '', variety: '', unit: 'bucket', qty: 20, price: 0 })
-    setShowAdd(false)
-    setFeedback(`✓ ${newFlower.name} added! All reps can now see it.`)
+    try {
+      const res = await fetch('/api/flowers/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newFlower.name,
+          variety: newFlower.variety,
+          color: colors2[flowers.length % colors2.length],
+          unit: newFlower.unit,
+          stems_per_unit: 10,
+          morning_qty: newFlower.morning_qty,
+          current_stock: newFlower.morning_qty,
+          price: newFlower.price,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setFeedback(`✓ ${newFlower.name} added! All reps can now see it.`)
+        setNewFlower({ name: '', variety: '', unit: 'bucket', morning_qty: 20, price: 0 })
+        setShowAdd(false)
+        loadFlowers()
+      } else {
+        setFeedback('Could not add flower: ' + data.error)
+      }
+    } catch {
+      setFeedback('Could not add flower.')
+    }
     setTimeout(() => setFeedback(''), 3000)
   }
 
-  function removeFlower(id: number) {
+  async function removeFlower(id: number) {
     if (!confirm('Remove this flower? Reps will no longer see it.')) return
-    setFlowers(prev => prev.filter(f => f.id !== id))
-    setFeedback('✓ Flower removed.')
+    try {
+      await fetch('/api/flowers/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      setFeedback('✓ Flower removed.')
+      loadFlowers()
+    } catch {
+      setFeedback('Could not remove flower.')
+    }
+    setTimeout(() => setFeedback(''), 3000)
+  }
+
+  function handleEditChange(id: number, field: 'morning_qty' | 'price', value: number, current: Flower) {
+    setEdits(prev => ({
+      ...prev,
+      [id]: {
+        morning_qty: field === 'morning_qty' ? value : (prev[id]?.morning_qty ?? current.morning_qty),
+        price: field === 'price' ? value : (prev[id]?.price ?? current.price),
+      },
+    }))
+  }
+
+  async function saveEdit(f: Flower) {
+    const edit = edits[f.id]
+    if (!edit) return
+    try {
+      await fetch('/api/flowers/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: f.id,
+          name: f.name,
+          variety: f.variety,
+          color: f.color,
+          unit: f.unit,
+          stems_per_unit: f.stems_per_unit,
+          morning_qty: edit.morning_qty,
+          current_stock: f.current_stock,
+          price: edit.price,
+          active: true,
+        }),
+      })
+      setFeedback(`✓ ${f.name} updated.`)
+      loadFlowers()
+      setEdits(prev => { const u = { ...prev }; delete u[f.id]; return u })
+    } catch {
+      setFeedback('Could not save changes.')
+    }
     setTimeout(() => setFeedback(''), 3000)
   }
 
@@ -251,7 +329,7 @@ function InventoryTab() {
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Flower name</label><input value={newFlower.name} onChange={e => setNewFlower(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Peonies" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Variety</label><input value={newFlower.variety} onChange={e => setNewFlower(p => ({ ...p, variety: e.target.value }))} placeholder="e.g. Sarah Bernhardt" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Unit</label><select value={newFlower.unit} onChange={e => setNewFlower(p => ({ ...p, unit: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }}><option value='bucket'>Bucket</option><option value='bunch'>Bunch</option></select></div>
-              <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Morning quantity</label><input type="number" value={newFlower.qty} onChange={e => setNewFlower(p => ({ ...p, qty: parseInt(e.target.value) || 0 }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
+              <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Morning quantity</label><input type="number" value={newFlower.morning_qty} onChange={e => setNewFlower(p => ({ ...p, morning_qty: parseInt(e.target.value) || 0 }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Price per unit ($)</label><input type="number" value={newFlower.price} onChange={e => setNewFlower(p => ({ ...p, price: parseFloat(e.target.value) || 0 }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
@@ -260,25 +338,39 @@ function InventoryTab() {
             </div>
           </div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 80px 30px', gap: '6px', padding: '0 0 6px', borderBottom: '0.5px solid #e5e5e3', marginBottom: '4px' }}>
-          {['Flower', 'Morning qty', 'In stock', 'Price', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
-        </div>
-        {flowers.map(f => {
-          const pct = Math.round(f.stock / f.qty * 100)
-          const stockColor = f.stock === 0 ? '#A32D2D' : pct <= 20 ? '#854F0B' : '#3B6D11'
-          return (
-            <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 80px 30px', gap: '6px', alignItems: 'center', padding: '8px 0', borderBottom: '0.5px solid #f0f0ee' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.color, flexShrink: 0 }} />
-                <div><div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{f.name}</div><div style={{ fontSize: '10px', color: '#888' }}>{f.variety} · {f.unit}</div></div>
-              </div>
-              <input type="number" defaultValue={f.qty} style={{ padding: '5px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
-              <div style={{ fontSize: '12px', fontWeight: '500', color: stockColor }}>{f.stock} left</div>
-              <input type="text" defaultValue={`$${f.price}`} style={{ padding: '5px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
-              <button onClick={() => removeFlower(f.id)} style={{ border: 'none', background: '#FCEBEB', borderRadius: '6px', cursor: 'pointer', color: '#A32D2D', fontSize: '14px', padding: '4px 6px' }}>×</button>
+        {loading ? (
+          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
+        ) : flowers.length === 0 ? (
+          <div style={{ fontSize: '12px', color: '#888', textAlign: 'center', padding: '1.5rem 0' }}>No flowers yet. Click &quot;+ Add flower&quot; to add your first one.</div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 80px 30px', gap: '6px', padding: '0 0 6px', borderBottom: '0.5px solid #e5e5e3', marginBottom: '4px' }}>
+              {['Flower', 'Morning qty', 'In stock', 'Price', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
             </div>
-          )
-        })}
+            {flowers.map(f => {
+              const pct = Math.round(f.current_stock / f.morning_qty * 100)
+              const stockColor = f.current_stock === 0 ? '#A32D2D' : pct <= 20 ? '#854F0B' : '#3B6D11'
+              const edit = edits[f.id]
+              return (
+                <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 80px 30px', gap: '6px', alignItems: 'center', padding: '8px 0', borderBottom: '0.5px solid #f0f0ee' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.color, flexShrink: 0 }} />
+                    <div><div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{f.name}</div><div style={{ fontSize: '10px', color: '#888' }}>{f.variety} · {f.unit}</div></div>
+                  </div>
+                  <input type="number" value={edit?.morning_qty ?? f.morning_qty} onChange={e => handleEditChange(f.id, 'morning_qty', parseInt(e.target.value) || 0, f)} style={{ padding: '5px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
+                  <div style={{ fontSize: '12px', fontWeight: '500', color: stockColor }}>{f.current_stock} left</div>
+                  <input type="number" value={edit?.price ?? f.price} onChange={e => handleEditChange(f.id, 'price', parseFloat(e.target.value) || 0, f)} style={{ padding: '5px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {edit && (
+                      <button onClick={() => saveEdit(f)} style={{ border: 'none', background: '#EAF3DE', borderRadius: '6px', cursor: 'pointer', color: '#3B6D11', fontSize: '11px', padding: '4px 6px' }}>✓</button>
+                    )}
+                    <button onClick={() => removeFlower(f.id)} style={{ border: 'none', background: '#FCEBEB', borderRadius: '6px', cursor: 'pointer', color: '#A32D2D', fontSize: '14px', padding: '4px 6px' }}>×</button>
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
       </div>
     </div>
   )
@@ -439,7 +531,7 @@ export default function Manager() {
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
-        {activeTab === 'overview' && <OverviewTab leaderboard={leaderboard} recentOrders={recentOrders} loading={loading} setActiveTab={setActiveTab} />}
+        {activeTab === 'overview' && <OverviewTab leaderboard={leaderboard} recentOrders={recentOrders} loading={loading} />}
         {activeTab === 'reps' && <RepsTab leaderboard={leaderboard} loading={loading} />}
         {activeTab === 'inventory' && <InventoryTab />}
         {activeTab === 'tiers' && <TiersTab leaderboard={leaderboard} />}
