@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', active: false },
@@ -15,86 +15,135 @@ type Customer = {
   name: string
   email: string
   phone: string
-  addr: string
-  orders: number
-  spent: string
-  last: string
-  status: 'active' | 'inactive' | 'vip'
+  adress: string
+  city: string
+  state: string
+  zip: string
+  status: string
   notes: string
-  history: { id: string; date: string; items: string; total: string; status: string }[]
 }
 
-const initialCustomers: Customer[] = [
-  { id: 1, name: 'Maria Gonzalez', email: 'm.gonzalez@email.com', phone: '(323) 555-0147', addr: '4821 Sunset Blvd, Los Angeles, CA 90028', orders: 7, spent: '$2,840', last: 'Jun 12', status: 'active', notes: 'Prefers morning calls. Orders every 2 weeks.', history: [{ id: 'ORD-20394', date: 'Jun 12', items: 'Roses x2 buckets, Sunflowers x3 bunches', total: '$110', status: 'shipped' }, { id: 'ORD-19801', date: 'May 28', items: 'Tulips x5 bunches', total: '$70', status: 'delivered' }] },
-  { id: 2, name: 'James Thornton', email: 'j.thornton@biz.net', phone: '(714) 555-0288', addr: '390 Harbor Dr, Anaheim, CA 92805', orders: 12, spent: '$7,100', last: 'Jun 10', status: 'vip', notes: 'Large orders — always needs hydrangeas.', history: [{ id: 'ORD-20381', date: 'Jun 10', items: 'Hydrangeas x5 buckets', total: '$190', status: 'delivered' }, { id: 'ORD-19755', date: 'May 20', items: 'Lilies x3 buckets', total: '$96', status: 'delivered' }] },
-  { id: 3, name: 'Priya Patel', email: 'priya.p@mailbox.org', phone: '(626) 555-0391', addr: '12 Oak Lane, Pasadena, CA 91101', orders: 4, spent: '$1,200', last: 'May 30', status: 'active', notes: '', history: [{ id: 'ORD-20100', date: 'May 30', items: 'Tulips x8 bunches', total: '$112', status: 'delivered' }] },
-  { id: 4, name: 'Carlos Ruiz', email: 'c.ruiz@example.com', phone: '(213) 555-0054', addr: '88 Main St, Compton, CA 90220', orders: 2, spent: '$320', last: 'Mar 10', status: 'inactive', notes: 'Has not ordered in 3 months — needs follow up.', history: [{ id: 'ORD-17200', date: 'Mar 10', items: 'Carnations x5 bunches', total: '$60', status: 'delivered' }] },
-  { id: 5, name: 'Aisha Nwosu', email: 'aisha.n@corp.io', phone: '(818) 555-0762', addr: '500 Commerce Ave, Burbank, CA 91502', orders: 19, spent: '$14,800', last: 'Jun 14', status: 'vip', notes: 'Best customer — orders every week. Always pays on time.', history: [{ id: 'ORD-20410', date: 'Jun 14', items: 'Roses x5 buckets, Tulips x10 bunches', total: '$280', status: 'processing' }, { id: 'ORD-20288', date: 'Jun 1', items: 'Hydrangeas x8 buckets', total: '$304', status: 'delivered' }] },
-]
+type CustomerOrder = { order_number: string; total: number; status: string; created_at: string }
 
 export default function Customers() {
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
+  const [userName, setUserName] = useState('there')
+  const [userInitials, setUserInitials] = useState('?')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Customer | null>(null)
+  const [history, setHistory] = useState<CustomerOrder[]>([])
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [newNote, setNewNote] = useState('')
-  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', addr: '', notes: '' })
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '' })
   const [feedback, setFeedback] = useState('')
 
+  const repId = typeof window !== 'undefined' ? localStorage.getItem('user_id') : null
+
+  function loadCustomers() {
+    if (!repId) { setLoading(false); return }
+    setLoading(true)
+    fetch(`/api/customers/list?rep_id=${repId}`)
+      .then(r => r.json())
+      .then(data => {
+        setCustomers(data.customers || [])
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    const name = localStorage.getItem('user_name') || 'there'
+    const initials = localStorage.getItem('user_initials') || name.split(' ').map(w => w[0]).join('').toUpperCase() || '?'
+    setUserName(name)
+    setUserInitials(initials)
+    loadCustomers()
+  }, [])
+
+  function selectCustomer(c: Customer) {
+    setSelected(c)
+    setNewNote(c.notes || '')
+    setEditMode(false)
+    setHistory([])
+    fetch(`/api/customers/orders?customer_name=${encodeURIComponent(c.name)}&rep_id=${repId}`)
+      .then(r => r.json())
+      .then(data => setHistory(data.orders || []))
+      .catch(() => setHistory([]))
+  }
+
   const filtered = customers.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase())
+    c.name?.toLowerCase().includes(search.toLowerCase()) ||
+    c.email?.toLowerCase().includes(search.toLowerCase())
   )
 
-  function addCustomer() {
+  async function addCustomer() {
     if (!newCustomer.name) { setFeedback('Please enter a name.'); return }
-    const c: Customer = {
-      id: Date.now(),
-      name: newCustomer.name,
-      email: newCustomer.email,
-      phone: newCustomer.phone,
-      addr: newCustomer.addr,
-      orders: 0,
-      spent: '$0',
-      last: '—',
-      status: 'active',
-      notes: newCustomer.notes,
-      history: [],
+    try {
+      const res = await fetch('/api/customers/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newCustomer, rep_id: repId, status: 'active' }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setFeedback('✓ Customer added!')
+        setNewCustomer({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '' })
+        setShowAdd(false)
+        loadCustomers()
+      } else {
+        setFeedback('Could not add customer: ' + data.error)
+      }
+    } catch {
+      setFeedback('Could not add customer.')
     }
-    setCustomers(prev => [...prev, c])
-    setNewCustomer({ name: '', email: '', phone: '', addr: '', notes: '' })
-    setShowAdd(false)
-    setFeedback('✓ Customer added!')
     setTimeout(() => setFeedback(''), 3000)
   }
 
-  function removeCustomer(id: number) {
+  async function removeCustomer(id: number) {
     if (!confirm('Remove this customer?')) return
-    setCustomers(prev => prev.filter(c => c.id !== id))
-    setSelected(null)
+    try {
+      await fetch('/api/customers/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      setSelected(null)
+      loadCustomers()
+    } catch {
+      setFeedback('Could not remove customer.')
+    }
   }
 
-  function saveNote() {
-    if (!selected || !newNote.trim()) return
-    setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, notes: newNote } : c))
-    setSelected(prev => prev ? { ...prev, notes: newNote } : null)
-    setEditMode(false)
-    setFeedback('✓ Note saved!')
+  async function saveNote() {
+    if (!selected) return
+    try {
+      const res = await fetch('/api/customers/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...selected, notes: newNote }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSelected(prev => prev ? { ...prev, notes: newNote } : null)
+        setEditMode(false)
+        setFeedback('✓ Note saved!')
+        loadCustomers()
+      }
+    } catch {
+      setFeedback('Could not save note.')
+    }
     setTimeout(() => setFeedback(''), 3000)
   }
 
   function statusBadge(status: string) {
     if (status === 'vip') return { bg: '#EEEDFE', color: '#3C3489', label: 'VIP' }
-    if (status === 'active') return { bg: '#EAF3DE', color: '#3B6D11', label: 'Active' }
-    return { bg: '#FAEEDA', color: '#854F0B', label: 'Inactive' }
+    if (status === 'inactive') return { bg: '#FAEEDA', color: '#854F0B', label: 'Inactive' }
+    return { bg: '#EAF3DE', color: '#3B6D11', label: 'Active' }
   }
 
-  function orderStatusBadge(status: string) {
-    if (status === 'delivered') return { bg: '#EAF3DE', color: '#3B6D11' }
-    if (status === 'shipped' || status === 'in transit') return { bg: '#E6F1FB', color: '#185FA5' }
-    return { bg: '#FAEEDA', color: '#854F0B' }
-  }
+  const totalSpent = history.reduce((s, o) => s + (o.total || 0), 0)
+  const lastOrder = history[0]?.created_at ? new Date(history[0].created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
@@ -106,9 +155,9 @@ export default function Customers() {
           <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>Sales portal</div>
         </div>
         <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e5e5e3', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>JR</div>
+          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{userInitials}</div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>Jake Rivera</div>
+            <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{userName}</div>
             <div style={{ fontSize: '10px', color: '#888' }}>Sales Rep</div>
           </div>
         </div>
@@ -127,12 +176,11 @@ export default function Customers() {
         <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>My Customers</div>
 
         {/* Metrics */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
           {[
             { label: 'Total customers', value: customers.length.toString() },
             { label: 'VIP customers', value: customers.filter(c => c.status === 'vip').length.toString() },
             { label: 'Need follow-up', value: customers.filter(c => c.status === 'inactive').length.toString() },
-            { label: 'Total revenue', value: '$26,260' },
           ].map(m => (
             <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
@@ -168,7 +216,21 @@ export default function Customers() {
               </div>
               <div>
                 <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Address</label>
-                <input value={newCustomer.addr} onChange={e => setNewCustomer(p => ({ ...p, addr: e.target.value }))} placeholder="Street, City, State ZIP" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                <input value={newCustomer.adress} onChange={e => setNewCustomer(p => ({ ...p, adress: e.target.value }))} placeholder="Street address" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>City</label>
+                <input value={newCustomer.city} onChange={e => setNewCustomer(p => ({ ...p, city: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>State</label>
+                  <input value={newCustomer.state} onChange={e => setNewCustomer(p => ({ ...p, state: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>ZIP</label>
+                  <input value={newCustomer.zip} onChange={e => setNewCustomer(p => ({ ...p, zip: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                </div>
               </div>
             </div>
             <div style={{ marginTop: '8px' }}>
@@ -184,35 +246,42 @@ export default function Customers() {
 
         {/* Customer list */}
         <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
-          <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {['Name', 'Email', 'Phone', 'Orders', 'Total spent', 'Status', ''].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(c => {
-                const badge = statusBadge(c.status)
-                return (
-                  <tr key={c.id} onClick={() => { setSelected(c); setNewNote(c.notes); setEditMode(false) }} style={{ cursor: 'pointer' }}>
-                    <td style={{ padding: '10px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{c.name}</td>
-                    <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.email}</td>
-                    <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.phone}</td>
-                    <td style={{ padding: '10px 8px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{c.orders}</td>
-                    <td style={{ padding: '10px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{c.spent}</td>
-                    <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                      <span style={{ background: badge.bg, color: badge.color, padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{badge.label}</span>
-                    </td>
-                    <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                      <button onClick={e => { e.stopPropagation(); removeCustomer(c.id) }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          {loading ? (
+            <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ fontSize: '12px', color: '#888', textAlign: 'center', padding: '1.5rem 0' }}>
+              No customers yet. Click &quot;+ Add customer&quot; to add your first one.
+            </div>
+          ) : (
+            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['Name', 'Email', 'Phone', 'City', 'Status', ''].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(c => {
+                  const badge = statusBadge(c.status)
+                  return (
+                    <tr key={c.id} onClick={() => selectCustomer(c)} style={{ cursor: 'pointer' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{c.name}</td>
+                      <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.email}</td>
+                      <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.phone}</td>
+                      <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.city}</td>
+                      <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
+                        <span style={{ background: badge.bg, color: badge.color, padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{badge.label}</span>
+                      </td>
+                      <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
+                        <button onClick={e => { e.stopPropagation(); removeCustomer(c.id) }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Customer detail */}
@@ -236,9 +305,9 @@ export default function Customers() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
               {[
-                { label: 'Total spent', value: selected.spent },
-                { label: 'Total orders', value: selected.orders.toString() },
-                { label: 'Last order', value: selected.last },
+                { label: 'Total spent', value: `$${totalSpent.toFixed(2)}` },
+                { label: 'Total orders', value: history.length.toString() },
+                { label: 'Last order', value: lastOrder },
               ].map(m => (
                 <div key={m.label} style={{ background: '#f9f9f8', borderRadius: '8px', padding: '10px' }}>
                   <div style={{ fontSize: '11px', color: '#888', marginBottom: '3px' }}>{m.label}</div>
@@ -249,7 +318,7 @@ export default function Customers() {
 
             <div style={{ marginBottom: '1rem' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Address</div>
-              <div style={{ fontSize: '12px', color: '#111' }}>{selected.addr}</div>
+              <div style={{ fontSize: '12px', color: '#111' }}>{selected.adress}{selected.city ? `, ${selected.city}` : ''}{selected.state ? `, ${selected.state}` : ''} {selected.zip}</div>
             </div>
 
             {/* Notes */}
@@ -272,31 +341,31 @@ export default function Customers() {
 
             {/* Order history */}
             <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Order history</div>
-            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['Order #', 'Date', 'Items', 'Total', 'Status'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {selected.history.map(o => {
-                  const sb = orderStatusBadge(o.status)
-                  return (
-                    <tr key={o.id}>
-                      <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '10px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.id}</td>
-                      <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{o.date}</td>
-                      <td style={{ padding: '8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items}</td>
-                      <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.total}</td>
+            {history.length === 0 ? (
+              <div style={{ fontSize: '12px', color: '#888' }}>No orders yet for this customer.</div>
+            ) : (
+              <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Order #', 'Date', 'Total', 'Status'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map(o => (
+                    <tr key={o.order_number}>
+                      <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '10px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.order_number}</td>
+                      <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+                      <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${(o.total || 0).toFixed(2)}</td>
                       <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                        <span style={{ background: sb.bg, color: sb.color, padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{o.status}</span>
+                        <span style={{ background: '#EAF3DE', color: '#3B6D11', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{o.status}</span>
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>
