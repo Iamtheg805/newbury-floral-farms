@@ -179,12 +179,8 @@ export default function Orders() {
           ${o.items.map(it => `
             <div style="display:flex;justify-content:space-between;line-height:2;font-size:11px;">
               <span>${it.name} x ${it.qty}</span>
-              <span>$${it.sub.toFixed(2)}</span>
             </div>
           `).join('')}
-          <div style="display:flex;justify-content:space-between;font-weight:bold;border-top:0.5px solid #ddd;padding-top:3px;margin-top:3px;font-size:12px;">
-            <span>Total</span><span>$${o.total.toFixed(2)}</span>
-          </div>
         </div>
         <div style="border-top:2px solid #111;padding-top:8px;">
           <div style="font-size:10px;display:flex;justify-content:space-between;">
@@ -469,6 +465,7 @@ body { background: white; }
               </button>
             </div>
 
+            {/* Label previews on screen */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {batch.map(o => (
                 <div key={o.id} style={{ background: 'white', border: '1.5px solid #ccc', borderRadius: '4px', padding: '14px', fontFamily: 'monospace', fontSize: '8px', color: '#111' }}>
@@ -494,12 +491,8 @@ body { background: white; }
                     {o.items.map((it, idx) => (
                       <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', lineHeight: '1.8' }}>
                         <span>{it.name} x {it.qty}</span>
-                        <span>${it.sub.toFixed(2)}</span>
                       </div>
                     ))}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', borderTop: '0.5px solid #ddd', paddingTop: '2px', marginTop: '2px' }}>
-                      <span>Total</span><span>${o.total.toFixed(2)}</span>
-                    </div>
                   </div>
                   <div style={{ borderTop: '1.5px solid #111', paddingTop: '6px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px' }}>
