@@ -1,43 +1,28 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
-const reps = [
-  { name: 'Sarah Lee', initials: 'SL', bg: '#FAEEDA', tc: '#633806', revenue: 54200, orders: 31, rate: '10%', confirmed: 3822, pending: 620, goal: 55000 },
-  { name: 'Mike Kim', initials: 'MK', bg: '#F1EFE8', tc: '#444441', revenue: 48700, orders: 27, rate: '10%', confirmed: 3344, pending: 487, goal: 55000 },
-  { name: 'Jake Rivera', initials: 'JR', bg: '#E6F1FB', tc: '#0C447C', revenue: 42180, orders: 24, rate: '7%', confirmed: 2953, pending: 612, goal: 55000 },
-  { name: 'Dana Perez', initials: 'DP', bg: '#EEEDFE', tc: '#3C3489', revenue: 38900, orders: 22, rate: '7%', confirmed: 2723, pending: 0, goal: 55000 },
-  { name: 'Tom Walsh', initials: 'TW', bg: '#E1F5EE', tc: '#085041', revenue: 29400, orders: 17, rate: '7%', confirmed: 1978, pending: 360, goal: 55000 },
-]
+type LeaderboardRep = { id: string; name: string; revenue: number; orders: number; rate: number; commission: number }
+type RecentOrder = { time: string; rep: string; customer: string; total: string; status: string; carrier: string }
 
-type Rep = {
-  name: string
-  initials: string
-  bg: string
-  tc: string
-  revenue: number
-  orders: number
-  rate: string
-  confirmed: number
-  pending: number
-  goal: number
-}
-
-const liveSales = [
-  { time: '11:42 AM', rep: 'Jake Rivera', customer: 'Aisha Nwosu', flower: 'Roses x2 buckets', total: '$56', status: 'invoiced' },
-  { time: '11:20 AM', rep: 'Sarah Lee', customer: 'Maria Gonzalez', flower: 'Sunflowers x5 bunches', total: '$90', status: 'invoiced' },
-  { time: '10:55 AM', rep: 'Mike Kim', customer: 'James Thornton', flower: 'Hydrangeas x3 buckets', total: '$114', status: 'invoiced' },
-  { time: '10:30 AM', rep: 'Dana Perez', customer: 'Priya Patel', flower: 'Tulips x8 bunches', total: '$112', status: 'pending' },
-  { time: '9:15 AM', rep: 'Tom Walsh', customer: 'Carlos Ruiz', flower: 'Gerbera Daisies x4 bunches', total: '$64', status: 'invoiced' },
-]
-
-const invAlerts = [
-  { flower: 'Tulips (Pink Impression)', msg: 'Only 5 bunches left — 88% sold', color: '#854F0B', icon: '⚠️' },
-  { flower: 'Carnations (Mixed Colors)', msg: 'Completely sold out today', color: '#A32D2D', icon: '🚫' },
-  { flower: 'Alstroemeria', msg: 'Only 3 bunches left', color: '#854F0B', icon: '⚠️' },
-  { flower: 'Roses (Red Freedom)', msg: '18 buckets remaining — 25% left', color: '#3B6D11', icon: '✓' },
+const colors = [
+  { bg: '#FAEEDA', tc: '#633806' },
+  { bg: '#F1EFE8', tc: '#444441' },
+  { bg: '#E6F1FB', tc: '#0C447C' },
+  { bg: '#EEEDFE', tc: '#3C3489' },
+  { bg: '#E1F5EE', tc: '#085041' },
 ]
 
 function Sidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (t: string) => void }) {
+  const [userName, setUserName] = useState('there')
+  const [userInitials, setUserInitials] = useState('?')
+
+  useEffect(() => {
+    const name = localStorage.getItem('user_name') || 'there'
+    const initials = localStorage.getItem('user_initials') || name.split(' ').map(w => w[0]).join('').toUpperCase() || '?'
+    setUserName(name)
+    setUserInitials(initials)
+  }, [])
+
   return (
     <div style={{ width: '200px', background: '#ffffff', borderRight: '0.5px solid #e5e5e3', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
       <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #e5e5e3' }}>
@@ -45,9 +30,9 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab:
         <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>Manager portal</div>
       </div>
       <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e5e5e3', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#FAEEDA', color: '#633806', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>RM</div>
+        <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#FAEEDA', color: '#633806', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{userInitials}</div>
         <div>
-          <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>Rosa Martinez</div>
+          <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{userName}</div>
           <div style={{ fontSize: '10px', color: '#888' }}>Regional Manager</div>
         </div>
       </div>
@@ -80,19 +65,20 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab:
   )
 }
 
-function OverviewTab({ setActiveTab }: { setActiveTab: (t: string) => void }) {
-  const totalRevenue = reps.reduce((s, r) => s + r.revenue, 0)
-  const totalComm = reps.reduce((s, r) => s + r.confirmed + r.pending, 0)
+function OverviewTab({ leaderboard, recentOrders, loading, setActiveTab }: { leaderboard: LeaderboardRep[]; recentOrders: RecentOrder[]; loading: boolean; setActiveTab: (t: string) => void }) {
+  const totalRevenue = leaderboard.reduce((s, r) => s + r.revenue, 0)
+  const totalComm = leaderboard.reduce((s, r) => s + r.commission, 0)
+  const totalOrders = leaderboard.reduce((s, r) => s + r.orders, 0)
 
   return (
     <div>
-      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Good morning, Rosa 👋</div><a href="/api/quickbooks/connect" style={{ display: "inline-block", padding: "8px 16px", background: "#2CA01C", color: "white", borderRadius: "8px", fontSize: "12px", textDecoration: "none", fontWeight: "500", marginBottom: "1rem" }}>Connect QuickBooks</a>
+      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Overview — this month</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
         {[
-          { label: 'Total revenue (Jun)', value: `$${totalRevenue.toLocaleString()}`, sub: '+22% vs May', subColor: '#3B6D11' },
-          { label: 'Active reps', value: '5', sub: 'West region', subColor: '#888' },
-          { label: 'Flowers sold today', value: '47 units', sub: '12 varieties', subColor: '#888' },
-          { label: 'Commission owed', value: `$${totalComm.toLocaleString()}`, sub: 'Due Jun 30', subColor: '#854F0B' },
+          { label: 'Total revenue (this month)', value: loading ? '...' : `$${totalRevenue.toLocaleString()}`, sub: `${leaderboard.length} active reps`, subColor: '#888' },
+          { label: 'Active reps', value: leaderboard.length.toString(), sub: 'West region', subColor: '#888' },
+          { label: 'Total orders', value: loading ? '...' : totalOrders.toString(), sub: 'This month', subColor: '#888' },
+          { label: 'Commission owed', value: loading ? '...' : `$${totalComm.toLocaleString()}`, sub: 'Due end of month', subColor: '#854F0B' },
         ].map(m => (
           <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
@@ -101,127 +87,117 @@ function OverviewTab({ setActiveTab }: { setActiveTab: (t: string) => void }) {
           </div>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-        <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Rep performance — June</div>
-          {reps.map(r => {
-            const pct = Math.round(r.revenue / r.goal * 100)
-            const color = pct >= 80 ? '#3B6D11' : pct >= 60 ? '#185FA5' : '#854F0B'
-            return (
-              <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: r.bg, color: r.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '500', flexShrink: 0 }}>{r.initials}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px' }}>
-                    <span style={{ color: '#111' }}>{r.name}</span>
-                    <span style={{ color: '#888' }}>${r.revenue.toLocaleString()}</span>
-                  </div>
-                  <div style={{ height: '4px', borderRadius: '99px', background: '#f0f0ee', overflow: 'hidden' }}>
-                    <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', borderRadius: '99px', background: color }} />
-                  </div>
+
+      <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
+        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Rep performance — this month</div>
+        {loading ? (
+          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
+        ) : leaderboard.length === 0 ? (
+          <div style={{ fontSize: '12px', color: '#888' }}>No reps found yet.</div>
+        ) : leaderboard.map((r, i) => {
+          const goal = 55000
+          const pct = Math.round(r.revenue / goal * 100)
+          const color = pct >= 80 ? '#3B6D11' : pct >= 60 ? '#185FA5' : '#854F0B'
+          const c = colors[i % colors.length]
+          const initials = r.name.split(' ').map(w => w[0]).join('').toUpperCase()
+          return (
+            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: c.bg, color: c.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '500', flexShrink: 0 }}>{initials}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px' }}>
+                  <span style={{ color: '#111' }}>{r.name}</span>
+                  <span style={{ color: '#888' }}>${r.revenue.toLocaleString()}</span>
                 </div>
-                <div style={{ fontSize: '10px', color: '#888', width: '28px', textAlign: 'right' }}>{Math.min(pct, 100)}%</div>
+                <div style={{ height: '4px', borderRadius: '99px', background: '#f0f0ee', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', borderRadius: '99px', background: color }} />
+                </div>
               </div>
-            )
-          })}
-        </div>
-        <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Inventory alerts</div>
-          {invAlerts.map((a, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '7px 0', borderBottom: '0.5px solid #f0f0ee' }}>
-              <span style={{ fontSize: '14px' }}>{a.icon}</span>
-              <div>
-                <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{a.flower}</div>
-                <div style={{ fontSize: '11px', color: a.color }}>{a.msg}</div>
-              </div>
+              <div style={{ fontSize: '10px', color: '#888', width: '28px', textAlign: 'right' }}>{Math.min(pct, 100)}%</div>
             </div>
-          ))}
-          <button onClick={() => setActiveTab('inventory')} style={{ marginTop: '10px', padding: '6px 12px', background: 'transparent', color: '#185FA5', border: '0.5px solid #185FA5', borderRadius: '8px', fontSize: '11px', cursor: 'pointer' }}>Manage inventory →</button>
-        </div>
+          )
+        })}
       </div>
+
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Live sales feed — today</div>
-        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>{['Time', 'Rep', 'Customer', 'Flower', 'Total', 'Status'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
-          </thead>
-          <tbody>
-            {liveSales.map((s, i) => (
-              <tr key={i}>
-                <td style={{ padding: '8px', color: '#888', borderBottom: '0.5px solid #f0f0ee' }}>{s.time}</td>
-                <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{s.rep}</td>
-                <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{s.customer}</td>
-                <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{s.flower}</td>
-                <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{s.total}</td>
-                <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                  <span style={{ background: s.status === 'invoiced' ? '#EAF3DE' : '#FAEEDA', color: s.status === 'invoiced' ? '#3B6D11' : '#854F0B', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{s.status}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Live sales feed — recent orders</div>
+        {recentOrders.length === 0 ? (
+          <div style={{ fontSize: '12px', color: '#888', padding: '1rem 0' }}>No orders yet.</div>
+        ) : (
+          <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>{['Time', 'Rep', 'Customer', 'Carrier', 'Total', 'Status'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {recentOrders.map((s, i) => (
+                <tr key={i}>
+                  <td style={{ padding: '8px', color: '#888', borderBottom: '0.5px solid #f0f0ee' }}>{s.time}</td>
+                  <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{s.rep}</td>
+                  <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{s.customer}</td>
+                  <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{s.carrier}</td>
+                  <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{s.total}</td>
+                  <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
+                    <span style={{ background: '#EAF3DE', color: '#3B6D11', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{s.status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
 }
 
-function RepsTab() {
-  const totalRevenue = reps.reduce((s, r) => s + r.revenue, 0)
-  const totalComm = reps.reduce((s, r) => s + r.confirmed + r.pending, 0)
+function RepsTab({ leaderboard, loading }: { leaderboard: LeaderboardRep[]; loading: boolean }) {
+  const totalRevenue = leaderboard.reduce((s, r) => s + r.revenue, 0)
+  const totalComm = leaderboard.reduce((s, r) => s + r.commission, 0)
   return (
     <div>
-      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>All Reps — June</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
+      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>All Reps — this month</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
         {[
-          { label: 'Total revenue', value: `$${totalRevenue.toLocaleString()}`, sub: '+22% vs May', subColor: '#3B6D11' },
-          { label: 'Top rep', value: 'Sarah Lee', sub: '$54,200', subColor: '#888' },
-          { label: 'Commission owed', value: `$${totalComm.toLocaleString()}`, sub: 'Due Jun 30', subColor: '#854F0B' },
-          { label: 'Needs attention', value: 'Tom Walsh', sub: 'Below target', subColor: '#854F0B' },
+          { label: 'Total revenue', value: `$${totalRevenue.toLocaleString()}` },
+          { label: 'Top rep', value: leaderboard[0]?.name || '—' },
+          { label: 'Commission owed', value: `$${totalComm.toLocaleString()}` },
         ].map(m => (
           <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
             <div style={{ fontSize: '18px', fontWeight: '600', color: '#111' }}>{m.value}</div>
-            <div style={{ fontSize: '11px', color: m.subColor, marginTop: '3px' }}>{m.sub}</div>
           </div>
         ))}
       </div>
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>{['Rep', 'Revenue', 'Orders', 'Tier', 'Commission', 'Goal %', 'Progress'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
-          </thead>
-          <tbody>
-            {reps.map(r => {
-              const pct = Math.round(r.revenue / r.goal * 100)
-              const color = pct >= 80 ? '#3B6D11' : pct >= 60 ? '#185FA5' : '#854F0B'
-              const badgeBg = pct >= 80 ? '#EAF3DE' : pct >= 60 ? '#E6F1FB' : '#FAEEDA'
-              const badgeColor = pct >= 80 ? '#3B6D11' : pct >= 60 ? '#185FA5' : '#854F0B'
-              return (
-                <tr key={r.name}>
-                  <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: r.bg, color: r.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '500' }}>{r.initials}</div>
-                      <span style={{ fontWeight: '500', color: '#111' }}>{r.name}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '10px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${r.revenue.toLocaleString()}</td>
-                  <td style={{ padding: '10px 8px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{r.orders}</td>
-                  <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                    <span style={{ background: '#E6F1FB', color: '#185FA5', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{r.rate}</span>
-                  </td>
-                  <td style={{ padding: '10px 8px', color: '#3B6D11', fontWeight: '500', borderBottom: '0.5px solid #f0f0ee' }}>${(r.confirmed + r.pending).toLocaleString()}</td>
-                  <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                    <span style={{ background: badgeBg, color: badgeColor, padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{Math.min(pct, 100)}%</span>
-                  </td>
-                  <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee', width: '120px' }}>
-                    <div style={{ height: '4px', borderRadius: '99px', background: '#f0f0ee', overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', borderRadius: '99px', background: color }} />
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        {loading ? (
+          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
+        ) : (
+          <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>{['Rep', 'Revenue', 'Orders', 'Tier', 'Commission'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {leaderboard.map((r, i) => {
+                const c = colors[i % colors.length]
+                const initials = r.name.split(' ').map(w => w[0]).join('').toUpperCase()
+                return (
+                  <tr key={r.id}>
+                    <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: c.bg, color: c.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '500' }}>{initials}</div>
+                        <span style={{ fontWeight: '500', color: '#111' }}>{r.name}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${r.revenue.toLocaleString()}</td>
+                    <td style={{ padding: '10px 8px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{r.orders}</td>
+                    <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
+                      <span style={{ background: '#E6F1FB', color: '#185FA5', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{r.rate}%</span>
+                    </td>
+                    <td style={{ padding: '10px 8px', color: '#3B6D11', fontWeight: '500', borderBottom: '0.5px solid #f0f0ee' }}>${r.commission.toLocaleString()}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
@@ -244,8 +220,8 @@ function InventoryTab() {
 
   function addFlower() {
     if (!newFlower.name || !newFlower.variety) { setFeedback('Please fill in name and variety.'); return }
-    const colors = ['#D4537E', '#EF9F27', '#AFA9EC', '#9FE1CB', '#F0997B', '#ED93B1']
-    setFlowers(prev => [...prev, { id: Date.now(), name: newFlower.name, variety: newFlower.variety, color: colors[prev.length % colors.length], unit: newFlower.unit, qty: newFlower.qty, stock: newFlower.qty, price: newFlower.price }])
+    const colors2 = ['#D4537E', '#EF9F27', '#AFA9EC', '#9FE1CB', '#F0997B', '#ED93B1']
+    setFlowers(prev => [...prev, { id: Date.now(), name: newFlower.name, variety: newFlower.variety, color: colors2[prev.length % colors2.length], unit: newFlower.unit, qty: newFlower.qty, stock: newFlower.qty, price: newFlower.price }])
     setNewFlower({ name: '', variety: '', unit: 'bucket', qty: 20, price: 0 })
     setShowAdd(false)
     setFeedback(`✓ ${newFlower.name} added! All reps can now see it.`)
@@ -308,7 +284,7 @@ function InventoryTab() {
   )
 }
 
-function TiersTab() {
+function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
   const [tiers, setTiers] = useState([
     { name: 'Starter', min: 0, max: 20000, rate: 5 },
     { name: 'Mid', min: 20001, max: 40000, rate: 7 },
@@ -340,31 +316,34 @@ function TiersTab() {
         ))}
         <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
           <button onClick={saveTiers} style={{ padding: '8px 16px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Save changes</button>
-          <button onClick={() => setTiers([{ name: 'Starter', min: 0, max: 20000, rate: 5 }, { name: 'Mid', min: 20001, max: 40000, rate: 7 }, { name: 'Top', min: 40001, max: 999999, rate: 10 }])} style={{ padding: '8px 12px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Reset</button>
         </div>
       </div>
+
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Commission owed by rep</div>
+        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Commission owed by rep — this month</div>
         <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-          <thead><tr>{['Rep', 'Revenue', 'Tier', 'Confirmed', 'Pending'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
+          <thead><tr>{['Rep', 'Revenue', 'Tier', 'Commission'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
           <tbody>
-            {reps.map(r => (
-              <tr key={r.name}>
-                <td style={{ padding: '9px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: r.bg, color: r.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '500' }}>{r.initials}</div>
-                    <span style={{ fontWeight: '500', color: '#111' }}>{r.name}</span>
-                  </div>
-                </td>
-                <td style={{ padding: '9px 8px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${r.revenue.toLocaleString()}</td>
-                <td style={{ padding: '9px 8px', borderBottom: '0.5px solid #f0f0ee' }}><span style={{ background: '#E6F1FB', color: '#185FA5', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{r.rate}</span></td>
-                <td style={{ padding: '9px 8px', color: '#3B6D11', fontWeight: '500', borderBottom: '0.5px solid #f0f0ee' }}>${r.confirmed.toLocaleString()}</td>
-                <td style={{ padding: '9px 8px', color: '#854F0B', borderBottom: '0.5px solid #f0f0ee' }}>${r.pending.toLocaleString()}</td>
-              </tr>
-            ))}
+            {leaderboard.map((r, i) => {
+              const c = colors[i % colors.length]
+              const initials = r.name.split(' ').map(w => w[0]).join('').toUpperCase()
+              return (
+                <tr key={r.id}>
+                  <td style={{ padding: '9px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                      <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: c.bg, color: c.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '500' }}>{initials}</div>
+                      <span style={{ fontWeight: '500', color: '#111' }}>{r.name}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: '9px 8px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${r.revenue.toLocaleString()}</td>
+                  <td style={{ padding: '9px 8px', borderBottom: '0.5px solid #f0f0ee' }}><span style={{ background: '#E6F1FB', color: '#185FA5', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{r.rate}%</span></td>
+                  <td style={{ padding: '9px 8px', color: '#3B6D11', fontWeight: '500', borderBottom: '0.5px solid #f0f0ee' }}>${r.commission.toLocaleString()}</td>
+                </tr>
+              )
+            })}
             <tr>
-              <td colSpan={3} style={{ padding: '9px 8px', fontWeight: '500', color: '#111' }}>Total owed</td>
-              <td colSpan={2} style={{ padding: '9px 8px', fontWeight: '600', color: '#3B6D11', fontSize: '14px' }}>${reps.reduce((s, r) => s + r.confirmed + r.pending, 0).toLocaleString()}</td>
+              <td colSpan={1} style={{ padding: '9px 8px', fontWeight: '500', color: '#111' }}>Total owed</td>
+              <td colSpan={3} style={{ padding: '9px 8px', fontWeight: '600', color: '#3B6D11', fontSize: '14px' }}>${leaderboard.reduce((s, r) => s + r.commission, 0).toLocaleString()}</td>
             </tr>
           </tbody>
         </table>
@@ -375,12 +354,9 @@ function TiersTab() {
 
 function UsersTab() {
   const [users, setUsers] = useState([
-    { name: 'Rosa Martinez', email: 'rosa.m@newburyfloral.com', role: 'manager', last: 'Today 8:02 AM' },
-    { name: 'Jake Rivera', email: 'jake.r@newburyfloral.com', role: 'rep', last: 'Today 9:15 AM' },
-    { name: 'Sarah Lee', email: 'sarah.l@newburyfloral.com', role: 'rep', last: 'Today 8:44 AM' },
-    { name: 'Mike Kim', email: 'mike.k@newburyfloral.com', role: 'rep', last: 'Today 10:01 AM' },
-    { name: 'Dana Perez', email: 'dana.p@newburyfloral.com', role: 'rep', last: 'Yesterday' },
-    { name: 'Tom Walsh', email: 'tom.w@newburyfloral.com', role: 'rep', last: 'Today 7:58 AM' },
+    { name: 'Rosa Martinez', email: 'rosa.m@newburyfloral.com', role: 'manager', last: 'Today' },
+    { name: 'Jake Rivera', email: 'jake.r@newburyfloral.com', role: 'rep', last: 'Today' },
+    { name: 'Jim M', email: 'jim@newburyfloralfarms.com', role: 'rep', last: 'Today' },
   ])
   const [showInvite, setShowInvite] = useState(false)
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'rep' })
@@ -391,8 +367,8 @@ function UsersTab() {
     setUsers(prev => [...prev, { name: newUser.name, email: newUser.email, role: newUser.role, last: 'Never' }])
     setNewUser({ name: '', email: '', role: 'rep' })
     setShowInvite(false)
-    setFeedback(`✓ Invite sent to ${newUser.email}!`)
-    setTimeout(() => setFeedback(''), 3000)
+    setFeedback(`✓ Now create this user manually in Supabase Authentication.`)
+    setTimeout(() => setFeedback(''), 5000)
   }
 
   function removeUser(email: string) {
@@ -407,18 +383,18 @@ function UsersTab() {
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ fontSize: '12px', color: '#888' }}>Control who can log in and what they can do.</div>
-          <button onClick={() => setShowInvite(!showInvite)} style={{ padding: '7px 14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>+ Invite user</button>
+          <button onClick={() => setShowInvite(!showInvite)} style={{ padding: '7px 14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>+ Add user (manual)</button>
         </div>
         {showInvite && (
           <div style={{ background: '#f9f9f8', borderRadius: '10px', padding: '1rem', marginBottom: '12px', border: '0.5px solid #185FA5' }}>
-            <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginBottom: '10px' }}>Invite new user</div>
+            <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginBottom: '10px' }}>Add new user</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: '8px', marginBottom: '10px' }}>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Full name</label><input value={newUser.name} onChange={e => setNewUser(p => ({ ...p, name: e.target.value }))} placeholder="e.g. John Smith" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Email</label><input value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} placeholder="email@newburyfloral.com" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Role</label><select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }}><option value='rep'>Sales Rep</option><option value='manager'>Manager</option></select></div>
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={inviteUser} style={{ padding: '7px 14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Send invite</button>
+              <button onClick={inviteUser} style={{ padding: '7px 14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Add to list</button>
               <button onClick={() => setShowInvite(false)} style={{ padding: '7px 12px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
@@ -438,45 +414,35 @@ function UsersTab() {
           </tbody>
         </table>
       </div>
-      <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Permissions by role</div>
-        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-          <thead><tr>{['Permission', 'Sales Rep', 'Manager'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
-          <tbody>
-            {[
-              ['View flower availability', true, true],
-              ['Sell / reduce stock', true, true],
-              ['Add or remove flowers', false, true],
-              ['Edit prices & quantities', false, true],
-              ['View own customers only', true, false],
-              ['View all reps performance', false, true],
-              ['Edit commission tiers', false, true],
-              ['Manage user access', false, true],
-            ].map(([label, rep, mgr]) => (
-              <tr key={label as string}>
-                <td style={{ padding: '8px', color: '#444', borderBottom: '0.5px solid #f0f0ee' }}>{label}</td>
-                <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}><span style={{ background: rep ? '#EAF3DE' : '#FCEBEB', color: rep ? '#3B6D11' : '#A32D2D', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{rep ? 'Yes' : 'No'}</span></td>
-                <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}><span style={{ background: mgr ? '#EAF3DE' : '#FCEBEB', color: mgr ? '#3B6D11' : '#A32D2D', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{mgr ? 'Yes' : 'No'}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   )
 }
 
 export default function Manager() {
   const [activeTab, setActiveTab] = useState('overview')
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRep[]>([])
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/leaderboard').then(r => r.json()),
+      fetch('/api/orders/recent').then(r => r.json()),
+    ]).then(([lbData, ordersData]) => {
+      setLeaderboard(lbData.leaderboard || [])
+      setRecentOrders(ordersData.orders || [])
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
-        {activeTab === 'overview' && <OverviewTab setActiveTab={setActiveTab} />}
-        {activeTab === 'reps' && <RepsTab />}
+        {activeTab === 'overview' && <OverviewTab leaderboard={leaderboard} recentOrders={recentOrders} loading={loading} setActiveTab={setActiveTab} />}
+        {activeTab === 'reps' && <RepsTab leaderboard={leaderboard} loading={loading} />}
         {activeTab === 'inventory' && <InventoryTab />}
-        {activeTab === 'tiers' && <TiersTab />}
+        {activeTab === 'tiers' && <TiersTab leaderboard={leaderboard} />}
         {activeTab === 'users' && <UsersTab />}
       </div>
     </div>
