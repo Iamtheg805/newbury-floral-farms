@@ -1,65 +1,113 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
-const initialFlowers = [
-  { id: 1, name: 'Roses', variety: 'Red Freedom', color: '#D4537E', unit: 'bucket', stems: 25, qty: 24, stock: 18, price: 28 },
-  { id: 2, name: 'Roses', variety: 'White Akito', color: '#B4B2A9', unit: 'bucket', stems: 25, qty: 20, stock: 12, price: 26 },
-  { id: 3, name: 'Sunflowers', variety: 'ProCut Orange', color: '#EF9F27', unit: 'bunch', stems: 10, qty: 30, stock: 30, price: 18 },
-  { id: 4, name: 'Tulips', variety: 'Pink Impression', color: '#ED93B1', unit: 'bunch', stems: 10, qty: 40, stock: 5, price: 14 },
-  { id: 5, name: 'Lilies', variety: 'Stargazer', color: '#F0997B', unit: 'bucket', stems: 10, qty: 15, stock: 8, price: 32 },
-  { id: 6, name: 'Carnations', variety: 'Mixed Colors', color: '#9FE1CB', unit: 'bunch', stems: 20, qty: 25, stock: 0, price: 12 },
-  { id: 7, name: 'Hydrangeas', variety: 'Blue Hortensia', color: '#AFA9EC', unit: 'bucket', stems: 5, qty: 18, stock: 14, price: 38 },
-  { id: 8, name: 'Gerbera Daisies', variety: 'Rainbow Mix', color: '#D85A30', unit: 'bunch', stems: 10, qty: 25, stock: 22, price: 16 },
-  { id: 9, name: 'Alstroemeria', variety: 'Yellow/Orange', color: '#FAC775', unit: 'bunch', stems: 10, qty: 20, stock: 3, price: 11 },
+const navItems = [
+  { label: 'Dashboard', href: '/dashboard', active: false },
+  { label: 'Flower Availability', href: '/flowers', active: true },
+  { label: 'New Order', href: '/orders', active: false },
+  { label: 'My Customers', href: '/customers', active: false },
+  { label: 'Quotes', href: '/quotes', active: false },
+  { label: 'My Commission', href: '/commission', active: false },
 ]
 
-const customers = ['Maria Gonzalez', 'James Thornton', 'Priya Patel', 'Carlos Ruiz', 'Aisha Nwosu']
-
-type Flower = typeof initialFlowers[0]
+type Flower = { id: number; name: string; variety: string; color: string; unit: string; stems_per_unit: number; morning_qty: number; current_stock: number; price: number }
+type CustomerOption = { id: number; name: string }
 type LogEntry = { time: string; flower: string; qty: number; unit: string; customer: string }
 
 export default function Flowers() {
-  const [flowers, setFlowers] = useState(initialFlowers)
+  const [userName, setUserName] = useState('there')
+  const [userInitials, setUserInitials] = useState('?')
+  const [flowers, setFlowers] = useState<Flower[]>([])
+  const [loading, setLoading] = useState(true)
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [selected, setSelected] = useState<Flower | null>(null)
   const [qty, setQty] = useState(1)
-  const [customer, setCustomer] = useState(customers[0])
+  const [customer, setCustomer] = useState('')
   const [filter, setFilter] = useState('all')
   const [log, setLog] = useState<LogEntry[]>([])
   const [feedback, setFeedback] = useState('')
 
+  function loadFlowers() {
+    setLoading(true)
+    fetch('/api/flowers/list')
+      .then(r => r.json())
+      .then(data => {
+        setFlowers(data.flowers || [])
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    const name = localStorage.getItem('user_name') || 'there'
+    const initials = localStorage.getItem('user_initials') || name.split(' ').map(w => w[0]).join('').toUpperCase() || '?'
+    setUserName(name)
+    setUserInitials(initials)
+
+    const repId = localStorage.getItem('user_id') || ''
+    if (repId) {
+      fetch(`/api/customers/list?rep_id=${repId}`)
+        .then(r => r.json())
+        .then(data => {
+          const list = data.customers || []
+          setCustomers(list)
+          if (list.length > 0) setCustomer(list[0].name)
+        })
+        .catch(() => setCustomers([]))
+    }
+
+    loadFlowers()
+  }, [])
+
   function getStatus(f: Flower) {
-    if (f.stock === 0) return 'out'
-    if (f.stock / f.qty <= 0.2) return 'low'
+    if (f.current_stock === 0) return 'out'
+    if (f.current_stock / f.morning_qty <= 0.2) return 'low'
     return 'ok'
   }
 
-  function doSell() {
+  async function doSell() {
     if (!selected) return
-    if (qty > selected.stock) {
-      setFeedback(`Not enough stock. Only ${selected.stock} available.`)
+    if (qty > selected.current_stock) {
+      setFeedback(`Not enough stock. Only ${selected.current_stock} available.`)
       return
     }
-    const updated = flowers.map(f => f.id === selected.id ? { ...f, stock: f.stock - qty } : f)
-    setFlowers(updated)
-    const updatedSelected = updated.find(f => f.id === selected.id)!
-    setSelected(updatedSelected)
-    const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    setLog(prev => [{ time, flower: `${selected.name} (${selected.variety})`, qty, unit: selected.unit, customer }, ...prev])
-    setFeedback(`✓ ${qty} ${selected.unit}${qty > 1 ? 's' : ''} sold to ${customer}. Stock: ${updatedSelected.stock} left.`)
+    if (!customer) {
+      setFeedback('Please select a customer.')
+      return
+    }
+    try {
+      const res = await fetch('/api/flowers/sell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, qty }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        setLog(prev => [{ time, flower: `${selected.name} (${selected.variety})`, qty, unit: selected.unit, customer }, ...prev])
+        setFeedback(`✓ ${qty} ${selected.unit}${qty > 1 ? 's' : ''} sold to ${customer}. Stock: ${data.flower.current_stock} left.`)
+        setSelected(data.flower)
+        loadFlowers()
+      } else {
+        setFeedback('Could not update stock: ' + data.error)
+      }
+    } catch {
+      setFeedback('Could not update stock.')
+    }
   }
 
   const filtered = flowers.filter(f => {
     if (filter === 'bucket') return f.unit === 'bucket'
     if (filter === 'bunch') return f.unit === 'bunch'
-    if (filter === 'instock') return f.stock > 0 && getStatus(f) === 'ok'
+    if (filter === 'instock') return f.current_stock > 0 && getStatus(f) === 'ok'
     if (filter === 'low') return getStatus(f) === 'low'
-    if (filter === 'out') return f.stock === 0
+    if (filter === 'out') return f.current_stock === 0
     return true
   })
 
-  const inStock = flowers.filter(f => f.stock > 0).length
+  const inStock = flowers.filter(f => f.current_stock > 0).length
   const low = flowers.filter(f => getStatus(f) === 'low').length
-  const out = flowers.filter(f => f.stock === 0).length
+  const out = flowers.filter(f => f.current_stock === 0).length
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
@@ -71,29 +119,20 @@ export default function Flowers() {
           <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>Sales portal</div>
         </div>
         <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e5e5e3', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>JR</div>
+          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{userInitials}</div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>Jake Rivera</div>
+            <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{userName}</div>
             <div style={{ fontSize: '10px', color: '#888' }}>Sales Rep</div>
           </div>
         </div>
         <div style={{ padding: '4px 0' }}>
-          {[
-            { label: 'Dashboard', href: '/dashboard', active: false },
-            { label: 'Flower Availability', href: '/flowers', active: true },
-            { label: 'New Order', href: '/orders', active: false },
-            { label: 'My Customers', href: '/customers', active: false },
-            { label: 'Quotes', href: '/quotes', active: false },
-            { label: 'My Commission', href: '/commission', active: false },
-          ].map(item => (
+          {navItems.map(item => (
             <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', textDecoration: 'none' }}>
               {item.label}
             </a>
           ))}
         </div>
-        <div style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', cursor: 'pointer' }}>
-          Sign out
-        </div>
+        <a href="/" style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', textDecoration: 'none', display: 'block' }}>Sign out</a>
       </div>
 
       {/* Main */}
@@ -101,7 +140,6 @@ export default function Flowers() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div style={{ fontSize: '18px', fontWeight: '500', color: '#111' }}>Flower Availability</div>
           <div style={{ fontSize: '11px', color: '#888' }}>
-            🕕 Restocked 6:00 AM &nbsp;·&nbsp;
             <span style={{ color: '#3B6D11' }}>{inStock} in stock</span> &nbsp;·&nbsp;
             <span style={{ color: '#854F0B' }}>{low} low</span> &nbsp;·&nbsp;
             <span style={{ color: '#A32D2D' }}>{out} sold out</span>
@@ -129,8 +167,8 @@ export default function Flowers() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
               {[
-                { label: 'Available', value: `${selected.stock} ${selected.unit}s` },
-                { label: 'Sold today', value: `${selected.qty - selected.stock} sold` },
+                { label: 'Available', value: `${selected.current_stock} ${selected.unit}s` },
+                { label: 'Sold today', value: `${selected.morning_qty - selected.current_stock} sold` },
                 { label: 'Price', value: `$${selected.price}/${selected.unit}` },
               ].map(m => (
                 <div key={m.label} style={{ background: '#f9f9f8', borderRadius: '8px', padding: '10px' }}>
@@ -140,10 +178,14 @@ export default function Flowers() {
               ))}
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <select value={customer} onChange={e => setCustomer(e.target.value)} style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px' }}>
-                {customers.map(c => <option key={c}>{c}</option>)}
-              </select>
-              <input type="number" value={qty} min={1} max={selected.stock} onChange={e => setQty(parseInt(e.target.value) || 1)} style={{ width: '70px', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px' }} />
+              {customers.length === 0 ? (
+                <div style={{ flex: 1, fontSize: '12px', color: '#888' }}>No customers yet. <a href="/customers" style={{ color: '#185FA5' }}>Add one first →</a></div>
+              ) : (
+                <select value={customer} onChange={e => setCustomer(e.target.value)} style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px' }}>
+                  {customers.map(c => <option key={c.id}>{c.name}</option>)}
+                </select>
+              )}
+              <input type="number" value={qty} min={1} max={selected.current_stock} onChange={e => setQty(parseInt(e.target.value) || 1)} style={{ width: '70px', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px' }} />
               <button onClick={doSell} style={{ padding: '7px 16px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
                 Sell & update
               </button>
@@ -155,36 +197,42 @@ export default function Flowers() {
         )}
 
         {/* Flower grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px', marginBottom: '1rem' }}>
-          {filtered.map(f => {
-            const pct = Math.round(f.stock / f.qty * 100)
-            const s = getStatus(f)
-            const barColor = f.stock === 0 ? '#E24B4A' : s === 'low' ? '#EF9F27' : '#639922'
-            const sold = f.qty - f.stock
-            return (
-              <div key={f.id} onClick={() => { setSelected(f); setFeedback(''); setQty(1) }} style={{ background: 'white', border: `0.5px solid ${selected?.id === f.id ? '#185FA5' : '#e5e5e3'}`, borderRadius: '10px', padding: '12px', cursor: 'pointer', opacity: f.stock === 0 ? 0.6 : 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.color, flexShrink: 0 }} />
-                  <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{f.name}</div>
+        {loading ? (
+          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
+        ) : flowers.length === 0 ? (
+          <div style={{ fontSize: '12px', color: '#888', textAlign: 'center', padding: '2rem 0' }}>No flowers added yet. Ask your manager to add inventory.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px', marginBottom: '1rem' }}>
+            {filtered.map(f => {
+              const pct = Math.round(f.current_stock / f.morning_qty * 100)
+              const s = getStatus(f)
+              const barColor = f.current_stock === 0 ? '#E24B4A' : s === 'low' ? '#EF9F27' : '#639922'
+              const sold = f.morning_qty - f.current_stock
+              return (
+                <div key={f.id} onClick={() => { setSelected(f); setFeedback(''); setQty(1) }} style={{ background: 'white', border: `0.5px solid ${selected?.id === f.id ? '#185FA5' : '#e5e5e3'}`, borderRadius: '10px', padding: '12px', cursor: 'pointer', opacity: f.current_stock === 0 ? 0.6 : 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.color, flexShrink: 0 }} />
+                    <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{f.name}</div>
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#888', marginBottom: '8px' }}>{f.variety} · {f.stems_per_unit} stems/{f.unit}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '20px', fontWeight: '600', color: '#111' }}>{f.current_stock}<span style={{ fontSize: '10px', color: '#888', marginLeft: '2px' }}>{f.unit}s</span></span>
+                    <span style={{ fontSize: '10px', color: '#888' }}>{sold} sold</span>
+                  </div>
+                  <div style={{ height: '4px', borderRadius: '99px', background: '#f0f0ee', overflow: 'hidden', marginBottom: '6px' }}>
+                    <div style={{ width: `${Math.max(pct, 2)}%`, height: '100%', borderRadius: '99px', background: barColor }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '10px', fontWeight: '500', padding: '2px 6px', borderRadius: '99px', background: f.current_stock === 0 ? '#FCEBEB' : s === 'low' ? '#FAEEDA' : '#EAF3DE', color: f.current_stock === 0 ? '#A32D2D' : s === 'low' ? '#854F0B' : '#3B6D11' }}>
+                      {f.current_stock === 0 ? 'Sold out' : s === 'low' ? 'Low stock' : 'In stock'}
+                    </span>
+                    <span style={{ fontSize: '10px', color: '#888' }}>${f.price}/{f.unit}</span>
+                  </div>
                 </div>
-                <div style={{ fontSize: '10px', color: '#888', marginBottom: '8px' }}>{f.variety} · {f.stems} stems/{f.unit}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: '600', color: '#111' }}>{f.stock}<span style={{ fontSize: '10px', color: '#888', marginLeft: '2px' }}>{f.unit}s</span></span>
-                  <span style={{ fontSize: '10px', color: '#888' }}>{sold} sold</span>
-                </div>
-                <div style={{ height: '4px', borderRadius: '99px', background: '#f0f0ee', overflow: 'hidden', marginBottom: '6px' }}>
-                  <div style={{ width: `${Math.max(pct, 2)}%`, height: '100%', borderRadius: '99px', background: barColor }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '10px', fontWeight: '500', padding: '2px 6px', borderRadius: '99px', background: f.stock === 0 ? '#FCEBEB' : s === 'low' ? '#FAEEDA' : '#EAF3DE', color: f.stock === 0 ? '#A32D2D' : s === 'low' ? '#854F0B' : '#3B6D11' }}>
-                    {f.stock === 0 ? 'Sold out' : s === 'low' ? 'Low stock' : 'In stock'}
-                  </span>
-                  <span style={{ fontSize: '10px', color: '#888' }}>${f.price}/{f.unit}</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Sales log */}
         <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
