@@ -10,8 +10,13 @@ export default function Home() {
         if (d.access_token) {
           const role = d.user?.user_metadata?.role || 'rep'
           alert('Got token, about to redirect, role is: ' + role)
-          localStorage.setItem('user_name', d.user?.user_metadata?.full_name || e.split('@')[0])
-          localStorage.setItem('user_role', role)
+          try {
+            localStorage.setItem('user_name', d.user?.user_metadata?.full_name || e.split('@')[0])
+            localStorage.setItem('user_role', role)
+          } catch (storageErr) {
+            alert('Storage error: ' + storageErr)
+          }
+          alert('About to redirect now to: ' + (role === 'manager' ? '/manager' : '/dashboard'))
           window.location.href = role === 'manager' ? '/manager' : '/dashboard'
         } else {
           alert('Invalid email or password')
