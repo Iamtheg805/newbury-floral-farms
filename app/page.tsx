@@ -9,14 +9,11 @@ export default function Home() {
       .then(d => {
         if (d.access_token) {
           const role = d.user?.user_metadata?.role || 'rep'
-          alert('Got token, about to redirect, role is: ' + role)
-          try {
-            localStorage.setItem('user_name', d.user?.user_metadata?.full_name || e.split('@')[0])
-            localStorage.setItem('user_role', role)
-          } catch (storageErr) {
-            alert('Storage error: ' + storageErr)
-          }
-          alert('About to redirect now to: ' + (role === 'manager' ? '/manager' : '/dashboard'))
+          const name = d.user?.user_metadata?.full_name || e.split('@')[0]
+          const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase()
+          localStorage.setItem('user_name', name)
+          localStorage.setItem('user_initials', initials)
+          localStorage.setItem('user_role', role)
           window.location.href = role === 'manager' ? '/manager' : '/dashboard'
         } else {
           alert('Invalid email or password')
@@ -26,14 +23,25 @@ export default function Home() {
   }
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9f9f8' }}>
-      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '340px', border: '0.5px solid #e5e5e3' }}>
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '340px', border: '0.5px solid #e5e5e3', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '22px', fontWeight: 600 }}>Newbury Floral Farms</div>
-          <div style={{ fontSize: '12px', color: '#888' }}>Sales portal</div>
+          <div style={{ fontSize: '22px', fontWeight: 600, color: '#111' }}>Newbury Floral Farms</div>
+          <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>Sales portal — sign in to continue</div>
         </div>
-        <input id="email" type="email" placeholder="Email" style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e5e5e3', marginBottom: '10px', color: '#111' }} />
-        <input id="password" type="password" placeholder="Password" style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e5e5e3', marginBottom: '16px', color: '#111' }} />
-        <button type="button" onClick={handleLogin} style={{ width: '100%', padding: '10px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Sign in</button>
+        <div style={{ marginBottom: '10px' }}>
+          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Email address</label>
+          <input id="email" type="email" placeholder="your@email.com" style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111', outline: 'none' }} />
+        </div>
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Password</label>
+          <input id="password" type="password" placeholder="••••••••" onKeyDown={(e) => { if (e.key === 'Enter') handleLogin() }} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111', outline: 'none' }} />
+        </div>
+        <button type="button" onClick={handleLogin} style={{ width: '100%', padding: '10px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}>
+          Sign in
+        </button>
+        <div style={{ fontSize: '11px', color: '#aaa', marginTop: '14px', textAlign: 'center' }}>
+          Contact your manager if you need access.
+        </div>
       </div>
     </div>
   )
