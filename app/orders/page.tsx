@@ -102,10 +102,10 @@ export default function Orders() {
   const batchComm = batchTotal * 0.07
 
   async function saveOrders() {
-    try {
-      const repId = localStorage.getItem('user_id') || ''
-      for (const order of batch) {
-        await fetch('/api/orders/save', {
+    const repId = localStorage.getItem('user_id') || ''
+    for (const order of batch) {
+      try {
+        const res = await fetch('/api/orders/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -124,9 +124,11 @@ export default function Orders() {
             })),
           }),
         })
+        const data = await res.json()
+        alert('Save result for ' + order.id + ': ' + JSON.stringify(data))
+      } catch (e) {
+        alert('Save fetch threw an error: ' + e)
       }
-    } catch (e) {
-      console.log('Could not save orders:', e)
     }
   }
 
