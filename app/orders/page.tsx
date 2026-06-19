@@ -34,7 +34,7 @@ const carriers = ['Armellini', 'Prime', 'Florida Beauty', 'Tawjo', 'Growers', 'F
 type Item = { name: string; price: number; unit: string; qty: number; sub: number }
 type Order = { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: Item[]; total: number }
 
-let orderCounter = 20412
+let orderCounter = 20414
 
 export default function Orders() {
   const [step, setStep] = useState<'add' | 'review' | 'print'>('add')
@@ -124,10 +124,9 @@ export default function Orders() {
             })),
           }),
         })
-        const data = await res.json()
-        alert('Save result for ' + order.id + ': ' + JSON.stringify(data))
+        await res.json()
       } catch (e) {
-        alert('Save fetch threw an error: ' + e)
+        console.log('Save error:', e)
       }
     }
   }
