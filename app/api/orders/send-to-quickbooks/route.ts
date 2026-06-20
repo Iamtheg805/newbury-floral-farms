@@ -71,6 +71,18 @@ async function findOrCreateItem(accessToken: string, realmId: string, itemName: 
   return createResult.Item?.Id
 }
 
+async function getNextDocNumber(accessToken: string, realmId: string) {
+  const response = await fetch(
+    `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent('SELECT DocNumber FROM Invoice ORDERBY MetaData.CreateTime DESC MAXRESULTS 1')}&minorversion=65`,
+    { headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' } }
+  )
+  const result = await response.json()
+  const lastDoc = result.QueryResponse?.Invoice?.[0]?.DocNumber
+  const lastNum = parseInt(lastDoc, 10)
+  if (isNaN(lastNum)) return null
+  return lastNum + 1
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const orderIds: number[] = body.order_ids || []
@@ -121,6 +133,8 @@ export async function POST(request: NextRequest) {
   const errors: { order: string; message: string }[] = []
   let emailsSent = 0
 
+  let nextDocNumber = await getNextDocNumber(accessToken, realmId)
+
   for (const order of orders) {
     const orderItems = itemsByOrder[order.id] || []
     const customerId = await findOrCreateCustomer(accessToken, realmId, order.customer_name)
@@ -167,6 +181,9 @@ export async function POST(request: NextRequest) {
       CustomerRef: { value: customerId },
       PrivateNote: `Carrier: ${order.carrier} | Truck: ${order.truck_id} | Order: ${order.order_number}`,
     }
+    if (nextDocNumber !== null) {
+      invoice.DocNumber = String(nextDocNumber)
+    }
     if (contact?.email) invoice.BillEmail = { Address: contact.email }
     if (contact?.cc) invoice.BillEmailCc = { Address: contact.cc }
     if (contact?.bcc) invoice.BillEmailBcc = { Address: contact.bcc }
@@ -187,8 +204,10 @@ export async function POST(request: NextRequest) {
     }
 
     successIds.push(order.id)
+    if (nextDocNumber !== null) nextDocNumber += 1
 
     if (contact?.email) {
+      await new Promise(resolve => setTimeout(resolve, 2000))
       try {
         const sendResponse = await fetch(
           `https://quickbooks.api.intuit.com/v3/company/${realmId}/invoice/${result.Invoice.Id}/send?minorversion=65`,
