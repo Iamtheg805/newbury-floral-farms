@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 type LeaderboardRep = { id: string; name: string; revenue: number; orders: number; rate: number; commission: number }
 type RecentOrder = { time: string; rep: string; customer: string; total: string; status: string; carrier: string }
 type Flower = { id: number; name: string; variety: string; color: string; unit: string; stems_per_unit: number; morning_qty: number; current_stock: number; price: number; active: boolean }
+type AppUser = { id: string; full_name: string; email: string; role: string; active: boolean }
 
 const colors = [
   { bg: '#FAEEDA', tc: '#633806' },
@@ -445,66 +446,117 @@ function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
 }
 
 function UsersTab() {
-  const [users, setUsers] = useState([
-    { name: 'Rosa Martinez', email: 'rosa.m@newburyfloral.com', role: 'manager', last: 'Today' },
-    { name: 'Jake Rivera', email: 'jake.r@newburyfloral.com', role: 'rep', last: 'Today' },
-    { name: 'Jim M', email: 'jim@newburyfloralfarms.com', role: 'rep', last: 'Today' },
-  ])
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [loading, setLoading] = useState(true)
   const [showInvite, setShowInvite] = useState(false)
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'rep' })
   const [feedback, setFeedback] = useState('')
+  const [tempPasswordShown, setTempPasswordShown] = useState<{ email: string; password: string } | null>(null)
 
-  function inviteUser() {
-    if (!newUser.name || !newUser.email) { setFeedback('Please fill in name and email.'); return }
-    setUsers(prev => [...prev, { name: newUser.name, email: newUser.email, role: newUser.role, last: 'Never' }])
-    setNewUser({ name: '', email: '', role: 'rep' })
-    setShowInvite(false)
-    setFeedback(`✓ Now create this user manually in Supabase Authentication.`)
-    setTimeout(() => setFeedback(''), 5000)
+  function loadUsers() {
+    setLoading(true)
+    fetch('/api/users/list')
+      .then(r => r.json())
+      .then(data => {
+        setUsers(data.users || [])
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }
 
-  function removeUser(email: string) {
+  useEffect(() => { loadUsers() }, [])
+
+  async function inviteUser() {
+    if (!newUser.name || !newUser.email) { setFeedback('Please fill in name and email.'); return }
+    try {
+      const res = await fetch('/api/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTempPasswordShown({ email: newUser.email, password: data.tempPassword })
+        setNewUser({ name: '', email: '', role: 'rep' })
+        setShowInvite(false)
+        loadUsers()
+      } else {
+        setFeedback('Could not create user: ' + data.error)
+        setTimeout(() => setFeedback(''), 4000)
+      }
+    } catch {
+      setFeedback('Could not create user.')
+      setTimeout(() => setFeedback(''), 4000)
+    }
+  }
+
+  async function removeUser(id: string) {
     if (!confirm('Remove this user? They will lose access immediately.')) return
-    setUsers(prev => prev.filter(u => u.email !== email))
+    try {
+      await fetch('/api/users/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      setFeedback('✓ User removed.')
+      loadUsers()
+    } catch {
+      setFeedback('Could not remove user.')
+    }
+    setTimeout(() => setFeedback(''), 3000)
   }
 
   return (
     <div>
       <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>User Access & Roles</div>
+
+      {tempPasswordShown && (
+        <div style={{ marginBottom: '10px', background: '#E6F1FB', border: '0.5px solid #185FA5', borderRadius: '8px', padding: '12px 14px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '500', color: '#0C447C', marginBottom: '6px' }}>✓ User created! Share these login details with them:</div>
+          <div style={{ fontSize: '12px', color: '#111', fontFamily: 'monospace' }}>Email: {tempPasswordShown.email}</div>
+          <div style={{ fontSize: '12px', color: '#111', fontFamily: 'monospace', marginBottom: '8px' }}>Temporary password: {tempPasswordShown.password}</div>
+          <button onClick={() => setTempPasswordShown(null)} style={{ padding: '5px 10px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>Got it, dismiss</button>
+        </div>
+      )}
+
       {feedback && <div style={{ marginBottom: '10px', fontSize: '12px', color: feedback.startsWith('✓') ? '#3B6D11' : '#A32D2D', background: feedback.startsWith('✓') ? '#EAF3DE' : '#FCEBEB', padding: '8px 12px', borderRadius: '8px' }}>{feedback}</div>}
+
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ fontSize: '12px', color: '#888' }}>Control who can log in and what they can do.</div>
-          <button onClick={() => setShowInvite(!showInvite)} style={{ padding: '7px 14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>+ Add user (manual)</button>
+          <button onClick={() => setShowInvite(!showInvite)} style={{ padding: '7px 14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>+ Invite user</button>
         </div>
         {showInvite && (
           <div style={{ background: '#f9f9f8', borderRadius: '10px', padding: '1rem', marginBottom: '12px', border: '0.5px solid #185FA5' }}>
-            <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginBottom: '10px' }}>Add new user</div>
+            <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginBottom: '10px' }}>Invite new user</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: '8px', marginBottom: '10px' }}>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Full name</label><input value={newUser.name} onChange={e => setNewUser(p => ({ ...p, name: e.target.value }))} placeholder="e.g. John Smith" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Email</label><input value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} placeholder="email@newburyfloral.com" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Role</label><select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }}><option value='rep'>Sales Rep</option><option value='manager'>Manager</option></select></div>
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={inviteUser} style={{ padding: '7px 14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Add to list</button>
+              <button onClick={inviteUser} style={{ padding: '7px 14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Create user</button>
               <button onClick={() => setShowInvite(false)} style={{ padding: '7px 12px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         )}
-        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-          <thead><tr>{['Name', 'Email', 'Role', 'Last login', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.email}>
-                <td style={{ padding: '9px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{u.name}</td>
-                <td style={{ padding: '9px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{u.email}</td>
-                <td style={{ padding: '9px 8px', borderBottom: '0.5px solid #f0f0ee' }}><span style={{ background: u.role === 'manager' ? '#FAEEDA' : '#E6F1FB', color: u.role === 'manager' ? '#633806' : '#185FA5', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{u.role}</span></td>
-                <td style={{ padding: '9px 8px', color: '#888', borderBottom: '0.5px solid #f0f0ee' }}>{u.last}</td>
-                <td style={{ padding: '9px 8px', borderBottom: '0.5px solid #f0f0ee' }}>{u.role !== 'manager' && <button onClick={() => removeUser(u.email)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {loading ? (
+          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
+        ) : (
+          <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+            <thead><tr>{['Name', 'Email', 'Role', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id}>
+                  <td style={{ padding: '9px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{u.full_name}</td>
+                  <td style={{ padding: '9px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{u.email}</td>
+                  <td style={{ padding: '9px 8px', borderBottom: '0.5px solid #f0f0ee' }}><span style={{ background: u.role === 'manager' ? '#FAEEDA' : '#E6F1FB', color: u.role === 'manager' ? '#633806' : '#185FA5', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{u.role}</span></td>
+                  <td style={{ padding: '9px 8px', borderBottom: '0.5px solid #f0f0ee' }}>{u.role !== 'manager' && <button onClick={() => removeUser(u.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
