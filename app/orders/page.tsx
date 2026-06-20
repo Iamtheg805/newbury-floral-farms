@@ -39,7 +39,6 @@ export default function Orders() {
   const [items, setItems] = useState<Item[]>([])
   const [feedback, setFeedback] = useState('')
   const [printed, setPrinted] = useState(false)
-  const [invoiceStatus, setInvoiceStatus] = useState('')
   const [todaysOrders, setTodaysOrders] = useState<TodayOrder[]>([])
   const [loadingToday, setLoadingToday] = useState(true)
   const [userName, setUserName] = useState('there')
@@ -175,25 +174,6 @@ export default function Orders() {
       } catch (e) {
         console.log('Save error:', e)
       }
-    }
-  }
-
-  async function createInvoices() {
-    try {
-      setInvoiceStatus('Creating QuickBooks invoices...')
-      const response = await fetch('/api/quickbooks/invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orders: batch }),
-      })
-      const result = await response.json()
-      if (result.success) {
-        setInvoiceStatus(`✓ ${result.invoices} QuickBooks invoice${result.invoices > 1 ? 's' : ''} created!`)
-      } else {
-        setInvoiceStatus('QuickBooks not connected — invoices skipped.')
-      }
-    } catch {
-      setInvoiceStatus('Could not create invoices — check QuickBooks connection.')
     }
   }
 
@@ -580,15 +560,13 @@ body { background: white; }
               ))}
             </div>
 
-            {invoiceStatus && (
-              <div style={{ marginBottom: '1rem', background: invoiceStatus.startsWith('✓') ? '#EAF3DE' : '#f9f9f8', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: invoiceStatus.startsWith('✓') ? '#3B6D11' : '#666' }}>
-                {invoiceStatus}
-              </div>
-            )}
+            <div style={{ marginBottom: '1rem', background: '#E6F1FB', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#0C447C' }}>
+              ℹ️ These orders are saved and will appear in <strong>Manager → Pending Invoices</strong> for review before being sent to QuickBooks.
+            </div>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
               {!printed ? (
-                <button onClick={() => { saveOrders(); createInvoices(); printLabels() }} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
+                <button onClick={() => { saveOrders(); printLabels() }} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
                   🖨️ Print all {batch.length} labels
                 </button>
               ) : (
@@ -596,7 +574,7 @@ body { background: white; }
                   ✓ {batch.length} labels sent to printer!
                 </div>
               )}
-              <button onClick={() => { setBatch([]); setStep('add'); setPrinted(false); setInvoiceStatus('') }} style={{ padding: '9px 14px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
+              <button onClick={() => { setBatch([]); setStep('add'); setPrinted(false) }} style={{ padding: '9px 14px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
                 ✓ Done — start new batch
               </button>
             </div>
