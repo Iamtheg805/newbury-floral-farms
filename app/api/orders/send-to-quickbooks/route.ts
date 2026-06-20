@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
   const { data: orders } = await supabase
     .from('orders')
-    .select('id, order_number, customer_name, carrier, truck_id, total')
+    .select('id, order_number, customer_name, carrier, truck_id, total, cc_fee_amount')
     .in('id', orderIds)
 
   if (!orders || orders.length === 0) {
@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
   })
 
   const itemIdCache: { [key: string]: string | null } = {}
+  let ccFeeItemId: string | null | undefined = undefined
 
   const successIds: number[] = []
   const errors: { order: string; message: string }[] = []
@@ -173,6 +174,23 @@ export async function POST(request: NextRequest) {
     if (lines.length === 0) {
       errors.push({ order: order.order_number, message: 'No valid line items could be created' })
       continue
+    }
+
+    if (order.cc_fee_amount && order.cc_fee_amount > 0) {
+      if (ccFeeItemId === undefined) {
+        ccFeeItemId = await findOrCreateItem(accessToken, realmId, '2.99% FEE Credit Card')
+      }
+      if (ccFeeItemId) {
+        lines.push({
+          Amount: order.cc_fee_amount,
+          DetailType: 'SalesItemLineDetail',
+          SalesItemLineDetail: {
+            ItemRef: { value: ccFeeItemId, name: '2.99% FEE Credit Card' },
+            Qty: 1,
+            UnitPrice: order.cc_fee_amount,
+          },
+        })
+      }
     }
 
     const contact = customerEmailMap[order.customer_name]
