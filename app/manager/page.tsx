@@ -5,6 +5,7 @@ type LeaderboardRep = { id: string; name: string; revenue: number; orders: numbe
 type RecentOrder = { time: string; rep: string; customer: string; total: string; status: string; carrier: string }
 type Flower = { id: number; name: string; variety: string; color: string; unit: string; stems_per_unit: number; morning_qty: number; current_stock: number; price: number; active: boolean }
 type AppUser = { id: string; full_name: string; email: string; role: string; active: boolean }
+type PendingOrder = { db_id: number; order_number: string; customer: string; carrier: string; total: number; rep: string; created_at: string; items: { name: string; qty: number; unit: string; sub: number }[] }
 
 const colors = [
   { bg: '#FAEEDA', tc: '#633806' },
@@ -14,7 +15,7 @@ const colors = [
   { bg: '#E1F5EE', tc: '#085041' },
 ]
 
-function Sidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (t: string) => void }) {
+function Sidebar({ activeTab, setActiveTab, pendingCount }: { activeTab: string; setActiveTab: (t: string) => void; pendingCount: number }) {
   const [userName, setUserName] = useState('there')
   const [userInitials, setUserInitials] = useState('?')
 
@@ -43,13 +44,15 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab:
         {[
           { label: 'Overview', id: 'overview' },
           { label: 'All Reps', id: 'reps' },
+          { label: 'Pending Invoices', id: 'pending', badge: pendingCount },
           { label: 'Manage Inventory', id: 'inventory' },
           { label: 'Commission Tiers', id: 'tiers' },
           { label: 'User Access', id: 'users' },
           { label: 'Company Settings', id: 'settings' },
         ].map(item => (
-          <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', fontSize: '12px', color: activeTab === item.id ? '#185FA5' : '#444', fontWeight: activeTab === item.id ? '500' : '400', borderLeft: activeTab === item.id ? '2px solid #185FA5' : '2px solid transparent', background: activeTab === item.id ? '#f0f7ff' : 'transparent', border: 'none', cursor: 'pointer' }}>
-            {item.label}
+          <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', padding: '9px 16px', fontSize: '12px', color: activeTab === item.id ? '#185FA5' : '#444', fontWeight: activeTab === item.id ? '500' : '400', borderLeft: activeTab === item.id ? '2px solid #185FA5' : '2px solid transparent', background: activeTab === item.id ? '#f0f7ff' : 'transparent', border: 'none', cursor: 'pointer' }}>
+            <span>{item.label}</span>
+            {!!item.badge && <span style={{ background: '#854F0B', color: 'white', borderRadius: '99px', fontSize: '10px', fontWeight: '500', padding: '1px 6px' }}>{item.badge}</span>}
           </button>
         ))}
       </div>
@@ -200,6 +203,159 @@ function RepsTab({ leaderboard, loading }: { leaderboard: LeaderboardRep[]; load
               })}
             </tbody>
           </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PendingInvoicesTab({ onCountChange }: { onCountChange: (n: number) => void }) {
+  const [orders, setOrders] = useState<PendingOrder[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [feedback, setFeedback] = useState('')
+  const [sending, setSending] = useState(false)
+
+  function loadPending() {
+    setLoading(true)
+    fetch('/api/orders/pending')
+      .then(r => r.json())
+      .then(data => {
+        const list: PendingOrder[] = data.orders || []
+        setOrders(list)
+        setSelected(new Set(list.map(o => o.db_id)))
+        onCountChange(list.length)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }
+
+  useEffect(() => { loadPending() }, [])
+
+  function toggle(id: number) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    if (selected.size === orders.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(orders.map(o => o.db_id)))
+    }
+  }
+
+  async function removeOrder(id: number) {
+    if (!confirm('Remove this order completely? Use this if the customer cancelled and it should not be invoiced or counted in any reports.')) return
+    try {
+      await fetch('/api/orders/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      loadPending()
+    } catch {
+      setFeedback('Could not remove order.')
+    }
+  }
+
+  async function sendToQuickBooks() {
+    if (selected.size === 0) { setFeedback('Select at least one order to send.'); return }
+    setSending(true)
+    setFeedback('Sending to QuickBooks...')
+    try {
+      const res = await fetch('/api/orders/send-to-quickbooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_ids: Array.from(selected) }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        let msg = `✓ ${data.invoiced} invoice${data.invoiced !== 1 ? 's' : ''} sent to QuickBooks!`
+        if (data.errors?.length > 0) msg += ` (${data.errors.length} failed — check QuickBooks connection)`
+        setFeedback(msg)
+        loadPending()
+      } else {
+        setFeedback('Could not send: ' + data.error)
+      }
+    } catch {
+      setFeedback('Could not send to QuickBooks.')
+    }
+    setSending(false)
+    setTimeout(() => setFeedback(''), 6000)
+  }
+
+  const selectedTotal = orders.filter(o => selected.has(o.db_id)).reduce((s, o) => s + o.total, 0)
+
+  return (
+    <div>
+      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Pending Invoices</div>
+      <div style={{ fontSize: '12px', color: '#888', marginBottom: '1rem' }}>
+        New orders land here first. Review them, remove anything that got cancelled, then send the rest to QuickBooks in one batch.
+      </div>
+
+      {feedback && <div style={{ marginBottom: '10px', fontSize: '12px', color: feedback.startsWith('✓') ? '#3B6D11' : '#A32D2D', background: feedback.startsWith('✓') ? '#EAF3DE' : '#FCEBEB', padding: '8px 12px', borderRadius: '8px' }}>{feedback}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
+        {[
+          { label: 'Orders pending', value: orders.length.toString() },
+          { label: 'Selected to send', value: selected.size.toString() },
+          { label: 'Selected total', value: `$${selectedTotal.toFixed(2)}` },
+        ].map(m => (
+          <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
+            <div style={{ fontSize: '20px', fontWeight: '600', color: '#111' }}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
+        {loading ? (
+          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
+        ) : orders.length === 0 ? (
+          <div style={{ fontSize: '12px', color: '#888', textAlign: 'center', padding: '2rem 0' }}>
+            <div style={{ fontSize: '28px', marginBottom: '8px' }}>✓</div>
+            All caught up — no pending orders to invoice.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#444', cursor: 'pointer' }}>
+                <input type="checkbox" checked={selected.size === orders.length && orders.length > 0} onChange={toggleAll} />
+                Select all
+              </label>
+              <button onClick={sendToQuickBooks} disabled={sending || selected.size === 0} style={{ padding: '8px 16px', background: sending || selected.size === 0 ? '#aaa' : '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: sending || selected.size === 0 ? 'not-allowed' : 'pointer' }}>
+                {sending ? 'Sending...' : `Send ${selected.size} to QuickBooks →`}
+              </button>
+            </div>
+            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>{['', 'Order #', 'Customer', 'Items', 'Total', 'Rep', 'Date', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {orders.map(o => (
+                  <tr key={o.db_id}>
+                    <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
+                      <input type="checkbox" checked={selected.has(o.db_id)} onChange={() => toggle(o.db_id)} />
+                    </td>
+                    <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '10px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.order_number}</td>
+                    <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.customer}</td>
+                    <td style={{ padding: '8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items.map(it => `${it.name} ×${it.qty}`).join(', ')}</td>
+                    <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${o.total.toFixed(2)}</td>
+                    <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{o.rep}</td>
+                    <td style={{ padding: '8px', color: '#888', borderBottom: '0.5px solid #f0f0ee' }}>{new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+                    <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
+                      <button onClick={() => removeOrder(o.db_id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
     </div>
@@ -646,6 +802,7 @@ export default function Manager() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardRep[]>([])
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
     Promise.all([
@@ -660,10 +817,11 @@ export default function Manager() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} pendingCount={pendingCount} />
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
         {activeTab === 'overview' && <OverviewTab leaderboard={leaderboard} recentOrders={recentOrders} loading={loading} />}
         {activeTab === 'reps' && <RepsTab leaderboard={leaderboard} loading={loading} />}
+        {activeTab === 'pending' && <PendingInvoicesTab onCountChange={setPendingCount} />}
         {activeTab === 'inventory' && <InventoryTab />}
         {activeTab === 'tiers' && <TiersTab leaderboard={leaderboard} />}
         {activeTab === 'users' && <UsersTab />}
