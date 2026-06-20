@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
   })
 
   const result = orders.map(o => ({
+    db_id: o.id,
     id: o.order_number,
     customer: o.customer_name,
     carrier: o.carrier,
