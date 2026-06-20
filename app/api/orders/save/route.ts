@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       carrier: body.carrier,
       truck_id: body.truck_id,
       total: body.total,
+      cc_fee_amount: body.cc_fee_amount || 0,
       rep_id: body.rep_id || null,
       status: 'finalized',
       finalized_at: new Date().toISOString(),

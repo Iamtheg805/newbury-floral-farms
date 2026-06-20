@@ -13,13 +13,14 @@ const navItems = [
 const carriers = ['Armellini', 'Prime', 'Florida Beauty', 'Tawjo', 'Growers', 'FedEx']
 
 type Item = { name: string; price: number; unit: string; qty: number; sub: number }
-type Order = { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: Item[]; total: number }
+type Order = { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: Item[]; itemsSubtotal: number; ccFee: number; total: number }
 type TodayOrder = { db_id: number; id: string; customer: string; carrier: string; truck: string; total: number; created_at: string; items: { name: string; qty: number; unit: string }[] }
-type CustomerOption = { id: number; name: string; phone: string; adress: string; city: string; state: string; zip: string }
+type CustomerOption = { id: number; name: string; phone: string; adress: string; city: string; state: string; zip: string; charges_cc_fee: boolean }
 type FlowerOption = { id: number; name: string; variety: string; unit: string; price: number }
 type CompanySettings = { name: string; address: string; city: string; state: string; zip: string; phone: string; email: string }
 
 let orderCounter = 20414
+const CC_FEE_RATE = 0.0299
 
 function barcodePattern() {
   const pattern = [3, 1, 2, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 3, 1, 2, 2, 1, 3, 1]
@@ -32,6 +33,7 @@ export default function Orders() {
   const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [flowerOptions, setFlowerOptions] = useState<FlowerOption[]>([])
   const [customer, setCustomer] = useState('')
+  const [customerChargesFee, setCustomerChargesFee] = useState(false)
   const [addr, setAddr] = useState('')
   const [phone, setPhone] = useState('')
   const [carrier, setCarrier] = useState(carriers[0])
@@ -100,6 +102,9 @@ export default function Orders() {
       const fullAddr = [found.adress, found.city, found.state].filter(Boolean).join(', ') + (found.zip ? ` ${found.zip}` : '')
       setAddr(fullAddr)
       setPhone(found.phone || '')
+      setCustomerChargesFee(!!found.charges_cc_fee)
+    } else {
+      setCustomerChargesFee(false)
     }
   }
 
@@ -126,16 +131,18 @@ export default function Orders() {
     setItems(items.filter((_, i) => i !== index))
   }
 
-  const total = items.reduce((s, i) => s + i.sub, 0)
-  const commission = total * 0.07
+  const itemsSubtotal = items.reduce((s, i) => s + i.sub, 0)
+  const ccFee = customerChargesFee ? itemsSubtotal * CC_FEE_RATE : 0
+  const total = itemsSubtotal + ccFee
+  const commission = itemsSubtotal * 0.07
 
   function addToBatch() {
     if (!customer) { setFeedback('Please select a customer first.'); return }
     orderCounter++
-    const order: Order = { id: `ORD-${orderCounter}`, customer, addr, phone, carrier, truck, items: [...items], total }
+    const order: Order = { id: `ORD-${orderCounter}`, customer, addr, phone, carrier, truck, items: [...items], itemsSubtotal, ccFee, total }
     setBatch(prev => [...prev, order])
     setFeedback(`✓ ${customer} added to batch!`)
-    setCustomer(''); setAddr(''); setPhone(''); setTruck('TRK-0482-W')
+    setCustomer(''); setAddr(''); setPhone(''); setTruck('TRK-0482-W'); setCustomerChargesFee(false)
     setItems([blankItem(flowerOptions)])
     setTimeout(() => setFeedback(''), 3000)
   }
@@ -145,7 +152,9 @@ export default function Orders() {
   }
 
   const batchTotal = batch.reduce((s, o) => s + o.total, 0)
-  const batchComm = batchTotal * 0.07
+  const batchSubtotal = batch.reduce((s, o) => s + o.itemsSubtotal, 0)
+  const batchFees = batch.reduce((s, o) => s + o.ccFee, 0)
+  const batchComm = batchSubtotal * 0.07
 
   async function saveOrders() {
     const repId = localStorage.getItem('user_id') || ''
@@ -160,6 +169,7 @@ export default function Orders() {
             carrier: order.carrier,
             truck_id: order.truck,
             total: order.total,
+            cc_fee_amount: order.ccFee,
             rep_id: repId,
             items: order.items.map(it => ({
               name: it.name,
@@ -372,8 +382,13 @@ body { background: white; }
                 ) : (
                   <select value={customer} onChange={e => handleCustomerChange(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', marginBottom: '10px', color: '#111' }}>
                     <option value=''>— choose customer —</option>
-                    {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    {customers.map(c => <option key={c.id} value={c.name}>{c.name}{c.charges_cc_fee ? ' (+2.99% fee)' : ''}</option>)}
                   </select>
+                )}
+                {customerChargesFee && (
+                  <div style={{ marginBottom: '10px', background: '#FAEEDA', borderRadius: '8px', padding: '8px 12px', fontSize: '11px', color: '#854F0B' }}>
+                    💳 This customer is charged a 2.99% credit card fee automatically — it&apos;ll be added to the total below.
+                  </div>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
@@ -433,12 +448,16 @@ body { background: white; }
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: '500', color: '#111' }}>Order total: <span style={{ color: '#185FA5' }}>${total.toFixed(2)}</span></div>
-                    <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>Commission (7%): <span style={{ color: '#3B6D11' }}>${commission.toFixed(2)}</span></div>
+                    <div style={{ fontSize: '12px', color: '#888' }}>Items subtotal: <span style={{ color: '#111' }}>${itemsSubtotal.toFixed(2)}</span></div>
+                    {customerChargesFee && (
+                      <div style={{ fontSize: '12px', color: '#854F0B', marginTop: '2px' }}>+ Credit card fee (2.99%): ${ccFee.toFixed(2)}</div>
+                    )}
+                    <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginTop: '2px' }}>Order total: <span style={{ color: '#185FA5' }}>${total.toFixed(2)}</span></div>
+                    <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>Commission (7% of product sales): <span style={{ color: '#3B6D11' }}>${commission.toFixed(2)}</span></div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button onClick={addToBatch} style={{ padding: '8px 16px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>+ Add to batch</button>
-                    <button onClick={() => { setCustomer(''); setAddr(''); setPhone(''); setItems([blankItem(flowerOptions)]) }} style={{ padding: '8px 12px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Clear</button>
+                    <button onClick={() => { setCustomer(''); setAddr(''); setPhone(''); setCustomerChargesFee(false); setItems([blankItem(flowerOptions)]) }} style={{ padding: '8px 12px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Clear</button>
                   </div>
                 </div>
                 {feedback && <div style={{ marginTop: '8px', fontSize: '11px', color: feedback.startsWith('✓') ? '#3B6D11' : '#A32D2D' }}>{feedback}</div>}
@@ -467,6 +486,7 @@ body { background: white; }
                         </div>
                         <div style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace', marginBottom: '4px' }}>{o.id}</div>
                         <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>{o.items.map(it => `${it.name} ×${it.qty}`).join(', ')}</div>
+                        {o.ccFee > 0 && <div style={{ fontSize: '10px', color: '#854F0B', marginBottom: '4px' }}>+${o.ccFee.toFixed(2)} CC fee</div>}
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ fontSize: '12px', fontWeight: '500', color: '#185FA5' }}>${o.total.toFixed(2)}</span>
                           <span style={{ fontSize: '10px', color: '#888' }}>{o.carrier}</span>
@@ -474,6 +494,14 @@ body { background: white; }
                       </div>
                     ))}
                     <div style={{ borderTop: '0.5px solid #e5e5e3', paddingTop: '10px', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginBottom: '4px' }}>
+                        <span>Items subtotal</span><span>${batchSubtotal.toFixed(2)}</span>
+                      </div>
+                      {batchFees > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#854F0B', marginBottom: '4px' }}>
+                          <span>CC fees</span><span>${batchFees.toFixed(2)}</span>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginBottom: '4px' }}>
                         <span>Batch total</span><span style={{ fontWeight: '500', color: '#185FA5' }}>${batchTotal.toFixed(2)}</span>
                       </div>
@@ -511,7 +539,7 @@ body { background: white; }
               <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Order #', 'Customer', 'Items', 'Total', 'Carrier', ''].map(h => (
+                    {['Order #', 'Customer', 'Items', 'CC fee', 'Total', 'Carrier', ''].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>
                     ))}
                   </tr>
@@ -522,6 +550,7 @@ body { background: white; }
                       <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '10px', borderBottom: '0.5px solid #f0f0ee', color: '#111' }}>{o.id}</td>
                       <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.customer}</td>
                       <td style={{ padding: '8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items.map(it => `${it.name} ×${it.qty}`).join(', ')}</td>
+                      <td style={{ padding: '8px', color: '#854F0B', borderBottom: '0.5px solid #f0f0ee' }}>{o.ccFee > 0 ? `$${o.ccFee.toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${o.total.toFixed(2)}</td>
                       <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{o.carrier}</td>
                       <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
