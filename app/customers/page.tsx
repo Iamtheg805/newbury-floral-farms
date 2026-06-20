@@ -23,6 +23,7 @@ type Customer = {
   notes: string
   cc_email: string
   bcc_email: string
+  charges_cc_fee: boolean
 }
 
 type CustomerOrder = { order_number: string; total: number; status: string; created_at: string }
@@ -39,8 +40,8 @@ export default function Customers() {
   const [editMode, setEditMode] = useState(false)
   const [editContactMode, setEditContactMode] = useState(false)
   const [newNote, setNewNote] = useState('')
-  const [contactEdit, setContactEdit] = useState({ email: '', phone: '', adress: '', city: '', state: '', zip: '', cc_email: '', bcc_email: '' })
-  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '' })
+  const [contactEdit, setContactEdit] = useState({ email: '', phone: '', adress: '', city: '', state: '', zip: '', cc_email: '', bcc_email: '', charges_cc_fee: false })
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '', charges_cc_fee: false })
   const [feedback, setFeedback] = useState('')
 
   const repId = typeof window !== 'undefined' ? localStorage.getItem('user_id') : null
@@ -79,6 +80,7 @@ export default function Customers() {
       zip: c.zip || '',
       cc_email: c.cc_email || '',
       bcc_email: c.bcc_email || '',
+      charges_cc_fee: c.charges_cc_fee || false,
     })
     setHistory([])
     fetch(`/api/customers/orders?customer_name=${encodeURIComponent(c.name)}&rep_id=${repId}`)
@@ -103,7 +105,7 @@ export default function Customers() {
       const data = await res.json()
       if (data.success) {
         setFeedback('✓ Customer added!')
-        setNewCustomer({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '' })
+        setNewCustomer({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '', charges_cc_fee: false })
         setShowAdd(false)
         loadCustomers()
       } else {
@@ -279,6 +281,12 @@ export default function Customers() {
                 <input value={newCustomer.bcc_email} onChange={e => setNewCustomer(p => ({ ...p, bcc_email: e.target.value }))} placeholder="optional" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
               </div>
             </div>
+            <div style={{ marginTop: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#444', cursor: 'pointer' }}>
+                <input type="checkbox" checked={newCustomer.charges_cc_fee} onChange={e => setNewCustomer(p => ({ ...p, charges_cc_fee: e.target.checked }))} />
+                Charges 2.99% credit card fee on every order
+              </label>
+            </div>
             <div style={{ marginTop: '8px' }}>
               <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Notes</label>
               <input value={newCustomer.notes} onChange={e => setNewCustomer(p => ({ ...p, notes: e.target.value }))} placeholder="e.g. Prefers morning calls" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
@@ -312,7 +320,10 @@ export default function Customers() {
                   const badge = statusBadge(c.status)
                   return (
                     <tr key={c.id} onClick={() => selectCustomer(c)} style={{ cursor: 'pointer' }}>
-                      <td style={{ padding: '10px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{c.name}</td>
+                      <td style={{ padding: '10px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>
+                        {c.name}
+                        {c.charges_cc_fee && <span style={{ marginLeft: '6px', fontSize: '9px', background: '#FAEEDA', color: '#854F0B', padding: '1px 5px', borderRadius: '99px' }}>+2.99%</span>}
+                      </td>
                       <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.email}</td>
                       <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.phone}</td>
                       <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.city}</td>
@@ -362,6 +373,12 @@ export default function Customers() {
               ))}
             </div>
 
+            {selected.charges_cc_fee && (
+              <div style={{ marginBottom: '1rem', background: '#FAEEDA', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#854F0B' }}>
+                💳 This customer is charged a 2.99% credit card fee on every order automatically.
+              </div>
+            )}
+
             {/* Contact info */}
             <div style={{ marginBottom: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -400,6 +417,10 @@ export default function Customers() {
                       <input value={contactEdit.bcc_email} onChange={e => setContactEdit(p => ({ ...p, bcc_email: e.target.value }))} placeholder="optional" style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
                     </div>
                   </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#444', cursor: 'pointer', marginBottom: '10px' }}>
+                    <input type="checkbox" checked={contactEdit.charges_cc_fee} onChange={e => setContactEdit(p => ({ ...p, charges_cc_fee: e.target.checked }))} />
+                    Charges 2.99% credit card fee on every order
+                  </label>
                   <button onClick={saveContactInfo} style={{ padding: '6px 12px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Save contact info</button>
                 </div>
               ) : (
