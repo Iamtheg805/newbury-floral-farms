@@ -14,9 +14,10 @@ const carriers = ['Armellini', 'Prime', 'Florida Beauty', 'Tawjo', 'Growers', 'F
 
 type Item = { name: string; price: number; unit: string; qty: number; sub: number }
 type Order = { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: Item[]; total: number }
-type TodayOrder = { id: string; customer: string; carrier: string; truck: string; total: number; created_at: string; items: { name: string; qty: number; unit: string }[] }
+type TodayOrder = { db_id: number; id: string; customer: string; carrier: string; truck: string; total: number; created_at: string; items: { name: string; qty: number; unit: string }[] }
 type CustomerOption = { id: number; name: string; phone: string; adress: string; city: string; state: string; zip: string }
 type FlowerOption = { id: number; name: string; variety: string; unit: string; price: number }
+type CompanySettings = { name: string; address: string; city: string; state: string; zip: string; phone: string; email: string }
 
 let orderCounter = 20414
 
@@ -43,11 +44,22 @@ export default function Orders() {
   const [loadingToday, setLoadingToday] = useState(true)
   const [userName, setUserName] = useState('there')
   const [userInitials, setUserInitials] = useState('?')
+  const [settings, setSettings] = useState<CompanySettings>({ name: 'Newbury Floral Farms', address: '1200 Harbor Blvd', city: 'Oxnard', state: 'CA', zip: '93033', phone: '(805) 555-0100', email: 'dispatch@newburyfloral.com' })
 
   function blankItem(opts: FlowerOption[]): Item {
     if (opts.length === 0) return { name: '', price: 0, unit: 'bunch', qty: 1, sub: 0 }
     const f = opts[0]
     return { name: `${f.name} (${f.variety})`, price: f.price, unit: f.unit, qty: 1, sub: f.price }
+  }
+
+  function loadTodaysOrders(repId: string) {
+    fetch(`/api/orders/today?rep_id=${repId}`)
+      .then(r => r.json())
+      .then(data => {
+        setTodaysOrders(data.orders || [])
+        setLoadingToday(false)
+      })
+      .catch(() => setLoadingToday(false))
   }
 
   useEffect(() => {
@@ -57,6 +69,11 @@ export default function Orders() {
     setUserInitials(initials)
 
     const repId = localStorage.getItem('user_id') || ''
+
+    fetch('/api/settings/get')
+      .then(r => r.json())
+      .then(data => { if (data.settings) setSettings(data.settings) })
+      .catch(() => {})
 
     fetch('/api/flowers/list')
       .then(r => r.json())
@@ -74,13 +91,7 @@ export default function Orders() {
       .then(data => setCustomers(data.customers || []))
       .catch(() => setCustomers([]))
 
-    fetch(`/api/orders/today?rep_id=${repId}`)
-      .then(r => r.json())
-      .then(data => {
-        setTodaysOrders(data.orders || [])
-        setLoadingToday(false)
-      })
-      .catch(() => setLoadingToday(false))
+    loadTodaysOrders(repId)
   }, [step])
 
   function handleCustomerChange(name: string) {
@@ -194,10 +205,10 @@ export default function Orders() {
       <div style="width:4in;height:6in;padding:0.2in;font-family:monospace;font-size:9px;color:#111;page-break-after:always;box-sizing:border-box;">
         <div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px;">
           <div>
-            <div style="font-weight:bold;font-size:12px;">NEWBURY FLORAL FARMS</div>
-            <div>1200 Harbor Blvd, Oxnard CA 93033</div>
-            <div>(805) 555-0100</div>
-            <div>dispatch@newburyfloral.com</div>
+            <div style="font-weight:bold;font-size:12px;">${settings.name.toUpperCase()}</div>
+            <div>${settings.address}</div>
+            <div>${settings.city}, ${settings.state} ${settings.zip}</div>
+            <div>${settings.phone}</div>
           </div>
           <div style="text-align:right;">
             <div style="font-weight:bold;font-size:28px;color:#111;">${o.carrier}</div>
@@ -233,7 +244,7 @@ export default function Orders() {
     return `<!DOCTYPE html>
 <html>
 <head>
-<title>Newbury Floral Farms — Labels</title>
+<title>${settings.name} — Labels</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: white; }
@@ -281,6 +292,21 @@ body { background: white; }
     }
   }
 
+  async function deleteOrder(o: TodayOrder) {
+    if (!confirm(`Delete order ${o.id} for ${o.customer}? This removes it from all reports and stats.`)) return
+    try {
+      await fetch('/api/orders/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: o.db_id }),
+      })
+      const repId = localStorage.getItem('user_id') || ''
+      loadTodaysOrders(repId)
+    } catch {
+      alert('Could not delete order.')
+    }
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
 
@@ -323,24 +349,29 @@ body { background: white; }
           ))}
         </div>
 
-        {/* Today's orders — reprint panel */}
+        {/* Today's orders — reprint/delete panel */}
         {step === 'add' && !loadingToday && todaysOrders.length > 0 && (
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
             <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-              Today&apos;s orders — reprint a label if needed
+              Today&apos;s orders — reprint or remove if needed
             </div>
-            <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '10px' }}>This list resets at midnight — only today&apos;s orders can be reprinted here.</div>
+            <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '10px' }}>This list resets at midnight — only today&apos;s orders can be managed here.</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
               {todaysOrders.map(o => (
-                <div key={o.id} style={{ background: '#f9f9f8', borderRadius: '8px', padding: '10px', border: '0.5px solid #e5e5e3' }}>
+                <div key={o.db_id} style={{ background: '#f9f9f8', borderRadius: '8px', padding: '10px', border: '0.5px solid #e5e5e3' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{o.customer}</div>
                     <div style={{ fontSize: '10px', color: '#888' }}>{new Date(o.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
                   </div>
                   <div style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace', marginBottom: '6px' }}>{o.id} · {o.carrier}</div>
-                  <button onClick={() => reprintLabel(o)} style={{ width: '100%', padding: '6px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
-                    🖨️ Reprint label
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button onClick={() => reprintLabel(o)} style={{ flex: 1, padding: '6px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
+                      🖨️ Reprint
+                    </button>
+                    <button onClick={() => deleteOrder(o)} style={{ padding: '6px 10px', background: '#FCEBEB', color: '#A32D2D', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -576,9 +607,10 @@ body { background: white; }
                 <div key={o.id} style={{ background: 'white', border: '1.5px solid #ccc', borderRadius: '4px', padding: '14px', fontFamily: 'monospace', fontSize: '8px', color: '#111' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1.5px solid #111', paddingBottom: '8px', marginBottom: '10px' }}>
                     <div>
-                      <div style={{ fontWeight: 'bold', fontSize: '11px' }}>NEWBURY FLORAL FARMS</div>
-                      <div>1200 Harbor Blvd, Oxnard CA 93033</div>
-                      <div>(805) 555-0100</div>
+                      <div style={{ fontWeight: 'bold', fontSize: '11px' }}>{settings.name.toUpperCase()}</div>
+                      <div>{settings.address}</div>
+                      <div>{settings.city}, {settings.state} {settings.zip}</div>
+                      <div>{settings.phone}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#111' }}>{o.carrier}</div>
