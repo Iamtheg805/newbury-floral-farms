@@ -21,6 +21,8 @@ type Customer = {
   zip: string
   status: string
   notes: string
+  cc_email: string
+  bcc_email: string
 }
 
 type CustomerOrder = { order_number: string; total: number; status: string; created_at: string }
@@ -35,8 +37,10 @@ export default function Customers() {
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [editMode, setEditMode] = useState(false)
+  const [editContactMode, setEditContactMode] = useState(false)
   const [newNote, setNewNote] = useState('')
-  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '' })
+  const [contactEdit, setContactEdit] = useState({ email: '', phone: '', adress: '', city: '', state: '', zip: '', cc_email: '', bcc_email: '' })
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '' })
   const [feedback, setFeedback] = useState('')
 
   const repId = typeof window !== 'undefined' ? localStorage.getItem('user_id') : null
@@ -65,6 +69,17 @@ export default function Customers() {
     setSelected(c)
     setNewNote(c.notes || '')
     setEditMode(false)
+    setEditContactMode(false)
+    setContactEdit({
+      email: c.email || '',
+      phone: c.phone || '',
+      adress: c.adress || '',
+      city: c.city || '',
+      state: c.state || '',
+      zip: c.zip || '',
+      cc_email: c.cc_email || '',
+      bcc_email: c.bcc_email || '',
+    })
     setHistory([])
     fetch(`/api/customers/orders?customer_name=${encodeURIComponent(c.name)}&rep_id=${repId}`)
       .then(r => r.json())
@@ -88,7 +103,7 @@ export default function Customers() {
       const data = await res.json()
       if (data.success) {
         setFeedback('✓ Customer added!')
-        setNewCustomer({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '' })
+        setNewCustomer({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '' })
         setShowAdd(false)
         loadCustomers()
       } else {
@@ -132,6 +147,29 @@ export default function Customers() {
       }
     } catch {
       setFeedback('Could not save note.')
+    }
+    setTimeout(() => setFeedback(''), 3000)
+  }
+
+  async function saveContactInfo() {
+    if (!selected) return
+    try {
+      const res = await fetch('/api/customers/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...selected, ...contactEdit }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSelected(prev => prev ? { ...prev, ...contactEdit } : null)
+        setEditContactMode(false)
+        setFeedback('✓ Contact info saved!')
+        loadCustomers()
+      } else {
+        setFeedback('Could not save: ' + data.error)
+      }
+    } catch {
+      setFeedback('Could not save contact info.')
     }
     setTimeout(() => setFeedback(''), 3000)
   }
@@ -207,8 +245,8 @@ export default function Customers() {
                 <input value={newCustomer.name} onChange={e => setNewCustomer(p => ({ ...p, name: e.target.value }))} placeholder="e.g. John Smith" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
               </div>
               <div>
-                <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Email</label>
-                <input value={newCustomer.email} onChange={e => setNewCustomer(p => ({ ...p, email: e.target.value }))} placeholder="email@example.com" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Email (buyer)</label>
+                <input value={newCustomer.email} onChange={e => setNewCustomer(p => ({ ...p, email: e.target.value }))} placeholder="buyer@example.com" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
               </div>
               <div>
                 <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Phone</label>
@@ -231,6 +269,14 @@ export default function Customers() {
                   <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>ZIP</label>
                   <input value={newCustomer.zip} onChange={e => setNewCustomer(p => ({ ...p, zip: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
                 </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>CC email (invoice team)</label>
+                <input value={newCustomer.cc_email} onChange={e => setNewCustomer(p => ({ ...p, cc_email: e.target.value }))} placeholder="ap@theircompany.com" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>BCC email</label>
+                <input value={newCustomer.bcc_email} onChange={e => setNewCustomer(p => ({ ...p, bcc_email: e.target.value }))} placeholder="optional" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
               </div>
             </div>
             <div style={{ marginTop: '8px' }}>
@@ -316,9 +362,54 @@ export default function Customers() {
               ))}
             </div>
 
+            {/* Contact info */}
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Address</div>
-              <div style={{ fontSize: '12px', color: '#111' }}>{selected.adress}{selected.city ? `, ${selected.city}` : ''}{selected.state ? `, ${selected.state}` : ''} {selected.zip}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div style={{ fontSize: '11px', color: '#888' }}>Contact & invoicing info</div>
+                <button onClick={() => setEditContactMode(!editContactMode)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '11px', color: '#185FA5' }}>{editContactMode ? 'Cancel' : 'Edit'}</button>
+              </div>
+              {editContactMode ? (
+                <div style={{ background: '#f9f9f8', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '3px' }}>Email (buyer)</label>
+                      <input value={contactEdit.email} onChange={e => setContactEdit(p => ({ ...p, email: e.target.value }))} style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '3px' }}>Phone</label>
+                      <input value={contactEdit.phone} onChange={e => setContactEdit(p => ({ ...p, phone: e.target.value }))} style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '3px' }}>Address</label>
+                      <input value={contactEdit.adress} onChange={e => setContactEdit(p => ({ ...p, adress: e.target.value }))} style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '3px' }}>City / State / ZIP</label>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <input value={contactEdit.city} onChange={e => setContactEdit(p => ({ ...p, city: e.target.value }))} placeholder="City" style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                        <input value={contactEdit.state} onChange={e => setContactEdit(p => ({ ...p, state: e.target.value }))} placeholder="State" style={{ width: '60px', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                        <input value={contactEdit.zip} onChange={e => setContactEdit(p => ({ ...p, zip: e.target.value }))} placeholder="ZIP" style={{ width: '70px', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '3px' }}>CC email (invoice team)</label>
+                      <input value={contactEdit.cc_email} onChange={e => setContactEdit(p => ({ ...p, cc_email: e.target.value }))} placeholder="ap@theircompany.com" style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '3px' }}>BCC email</label>
+                      <input value={contactEdit.bcc_email} onChange={e => setContactEdit(p => ({ ...p, bcc_email: e.target.value }))} placeholder="optional" style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                    </div>
+                  </div>
+                  <button onClick={saveContactInfo} style={{ padding: '6px 12px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Save contact info</button>
+                </div>
+              ) : (
+                <div style={{ background: '#f9f9f8', borderRadius: '8px', padding: '12px', fontSize: '12px', color: '#111', lineHeight: '1.8' }}>
+                  <div>{selected.adress}{selected.city ? `, ${selected.city}` : ''}{selected.state ? `, ${selected.state}` : ''} {selected.zip}</div>
+                  <div style={{ color: '#666' }}>Buyer email: {selected.email || '—'}</div>
+                  <div style={{ color: '#666' }}>CC (invoice team): {selected.cc_email || '—'}</div>
+                  <div style={{ color: '#666' }}>BCC: {selected.bcc_email || '—'}</div>
+                </div>
+              )}
             </div>
 
             {/* Notes */}

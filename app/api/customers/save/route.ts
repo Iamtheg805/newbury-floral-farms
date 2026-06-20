@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
     rep_id: body.rep_id || null,
     status: body.status || 'active',
     notes: body.notes || '',
+    cc_email: body.cc_email || '',
+    bcc_email: body.bcc_email || '',
   }
 
   if (body.id) {
