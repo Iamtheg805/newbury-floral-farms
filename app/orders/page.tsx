@@ -20,6 +20,11 @@ type FlowerOption = { id: number; name: string; variety: string; unit: string; p
 
 let orderCounter = 20414
 
+function barcodePattern() {
+  const pattern = [3, 1, 2, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 3, 1, 2, 2, 1, 3, 1]
+  return pattern.map((w, i) => `<span style="display:inline-block;width:${w}px;height:${12 + (i % 5) * 5}px;background:#111;margin-right:1px;"></span>`).join('')
+}
+
 export default function Orders() {
   const [step, setStep] = useState<'add' | 'review' | 'print'>('add')
   const [batch, setBatch] = useState<Order[]>([])
@@ -36,6 +41,8 @@ export default function Orders() {
   const [invoiceStatus, setInvoiceStatus] = useState('')
   const [todaysOrders, setTodaysOrders] = useState<TodayOrder[]>([])
   const [loadingToday, setLoadingToday] = useState(true)
+  const [userName, setUserName] = useState('there')
+  const [userInitials, setUserInitials] = useState('?')
 
   function blankItem(opts: FlowerOption[]): Item {
     if (opts.length === 0) return { name: '', price: 0, unit: 'bunch', qty: 1, sub: 0 }
@@ -44,6 +51,11 @@ export default function Orders() {
   }
 
   useEffect(() => {
+    const name = localStorage.getItem('user_name') || 'there'
+    const initials = localStorage.getItem('user_initials') || name.split(' ').map(w => w[0]).join('').toUpperCase() || '?'
+    setUserName(name)
+    setUserInitials(initials)
+
     const repId = localStorage.getItem('user_id') || ''
 
     fetch('/api/flowers/list')
@@ -180,7 +192,7 @@ export default function Orders() {
 
     const labelsHTML = labelOrders.map(o => `
       <div style="width:4in;height:6in;padding:0.2in;font-family:monospace;font-size:9px;color:#111;page-break-after:always;box-sizing:border-box;">
-        <div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px;">
           <div>
             <div style="font-weight:bold;font-size:12px;">NEWBURY FLORAL FARMS</div>
             <div>1200 Harbor Blvd, Oxnard CA 93033</div>
@@ -193,9 +205,9 @@ export default function Orders() {
             <div style="font-size:10px;">Rep: ${repName}</div>
           </div>
         </div>
-        <div style="font-size:8px;color:#888;margin-bottom:3px;">SHIP TO</div>
-        <div style="font-weight:bold;font-size:18px;margin-bottom:4px;">${o.customer}</div>
-        <div style="margin-bottom:10px;line-height:1.6;font-size:11px;">
+        <div style="font-size:9px;color:#888;margin-bottom:4px;letter-spacing:0.05em;">SHIP TO</div>
+        <div style="font-weight:bold;font-size:26px;margin-bottom:10px;letter-spacing:0.02em;line-height:1.2;">${o.customer}</div>
+        <div style="margin-bottom:14px;line-height:1.7;font-size:14px;">
           <div>${o.addr}</div>
           <div>${o.phone}</div>
         </div>
@@ -207,7 +219,10 @@ export default function Orders() {
             </div>
           `).join('')}
         </div>
-        <div style="border-top:2px solid #111;padding-top:8px;">
+        <div style="border-top:2px solid #111;padding-top:8px;text-align:center;">
+          <div style="display:flex;justify-content:center;align-items:flex-end;height:40px;gap:1px;margin-bottom:5px;">
+            ${barcodePattern()}
+          </div>
           <div style="font-size:10px;display:flex;justify-content:space-between;">
             <span>${o.id}</span><span>${date}</span>
           </div>
@@ -276,9 +291,9 @@ body { background: white; }
           <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>Sales portal</div>
         </div>
         <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e5e5e3', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>JR</div>
+          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{userInitials}</div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>Jake Rivera</div>
+            <div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{userName}</div>
             <div style={{ fontSize: '10px', color: '#888' }}>Sales Rep</div>
           </div>
         </div>
@@ -559,7 +574,7 @@ body { background: white; }
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {batch.map(o => (
                 <div key={o.id} style={{ background: 'white', border: '1.5px solid #ccc', borderRadius: '4px', padding: '14px', fontFamily: 'monospace', fontSize: '8px', color: '#111' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1.5px solid #111', paddingBottom: '8px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1.5px solid #111', paddingBottom: '8px', marginBottom: '10px' }}>
                     <div>
                       <div style={{ fontWeight: 'bold', fontSize: '11px' }}>NEWBURY FLORAL FARMS</div>
                       <div>1200 Harbor Blvd, Oxnard CA 93033</div>
@@ -570,9 +585,9 @@ body { background: white; }
                       <div>{o.truck}</div>
                     </div>
                   </div>
-                  <div style={{ fontSize: '7px', color: '#888', marginBottom: '2px' }}>SHIP TO</div>
-                  <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '2px' }}>{o.customer}</div>
-                  <div style={{ marginBottom: '6px', lineHeight: '1.6' }}>
+                  <div style={{ fontSize: '7px', color: '#888', marginBottom: '3px', letterSpacing: '0.05em' }}>SHIP TO</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '6px', letterSpacing: '0.02em' }}>{o.customer}</div>
+                  <div style={{ marginBottom: '8px', lineHeight: '1.6' }}>
                     <div>{o.addr}</div>
                     <div>{o.phone}</div>
                   </div>
@@ -584,7 +599,8 @@ body { background: white; }
                       </div>
                     ))}
                   </div>
-                  <div style={{ borderTop: '1.5px solid #111', paddingTop: '6px' }}>
+                  <div style={{ borderTop: '1.5px solid #111', paddingTop: '6px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '6px', color: '#aaa', marginBottom: '4px' }}>(barcode prints on actual label)</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px' }}>
                       <span>{o.id}</span>
                       <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
