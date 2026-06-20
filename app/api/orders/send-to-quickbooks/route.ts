@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getValidAccessToken } from '../../quickbooks/_lib'
+
+function parseFlowerName(fullName: string) {
+  const match = fullName.match(/^(.*)\s\((.*)\)$/)
+  if (match) {
+    return { name: match[1].trim(), variety: match[2].trim() }
+  }
+  return { name: fullName.trim(), variety: '' }
+}
 
 async function findOrCreateCustomer(accessToken: string, realmId: string, customerName: string) {
+  const cleanName = customerName.trim()
   const searchResponse = await fetch(
-    `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=SELECT * FROM Customer WHERE DisplayName = '${customerName.replace(/'/g, "\\'")}'&minorversion=65`,
+    `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${cleanName.replace(/'/g, "\\'")}'`)}&minorversion=65`,
     { headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' } }
   )
   const searchResult = await searchResponse.json()
@@ -17,11 +27,48 @@ async function findOrCreateCustomer(accessToken: string, realmId: string, custom
     {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ DisplayName: customerName }),
+      body: JSON.stringify({ DisplayName: cleanName }),
     }
   )
   const createResult = await createResponse.json()
-  return createResult.Customer?.Id || '1'
+  return createResult.Customer?.Id
+}
+
+async function findOrCreateItem(accessToken: string, realmId: string, itemName: string) {
+  const cleanName = itemName.trim()
+  const searchResponse = await fetch(
+    `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(`SELECT * FROM Item WHERE Name = '${cleanName.replace(/'/g, "\\'")}'`)}&minorversion=65`,
+    { headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' } }
+  )
+  const searchResult = await searchResponse.json()
+
+  if (searchResult.QueryResponse?.Item?.length > 0) {
+    return searchResult.QueryResponse.Item[0].Id
+  }
+
+  const incomeAccountResponse = await fetch(
+    `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent("SELECT * FROM Account WHERE AccountType = 'Income' MAXRESULTS 1")}&minorversion=65`,
+    { headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' } }
+  )
+  const incomeAccountResult = await incomeAccountResponse.json()
+  const incomeAccountId = incomeAccountResult.QueryResponse?.Account?.[0]?.Id
+
+  if (!incomeAccountId) return null
+
+  const createResponse = await fetch(
+    `https://quickbooks.api.intuit.com/v3/company/${realmId}/item?minorversion=65`,
+    {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        Name: cleanName,
+        Type: 'Service',
+        IncomeAccountRef: { value: incomeAccountId },
+      }),
+    }
+  )
+  const createResult = await createResponse.json()
+  return createResult.Item?.Id
 }
 
 export async function POST(request: NextRequest) {
@@ -33,10 +80,11 @@ export async function POST(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  const { data: qbTokens } = await supabase.from('quickbooks_tokens').select('*').single()
-  if (!qbTokens) {
-    return NextResponse.json({ error: 'QuickBooks not connected' }, { status: 400 })
+  const tokenInfo = await getValidAccessToken()
+  if (!tokenInfo) {
+    return NextResponse.json({ error: 'QuickBooks not connected or token refresh failed. Please reconnect QuickBooks in Manager settings.' }, { status: 400 })
   }
+  const { access_token: accessToken, realm_id: realmId } = tokenInfo
 
   const { data: orders } = await supabase
     .from('orders')
@@ -52,45 +100,88 @@ export async function POST(request: NextRequest) {
     .select('order_id, flower_name, quantity, price_per_unit, subtotal')
     .in('order_id', orderIds)
 
+  const { data: customersData } = await supabase
+    .from('customers')
+    .select('name, email, cc_email, bcc_email')
+
+  const customerEmailMap: { [key: string]: { email: string; cc: string; bcc: string } } = {}
+  customersData?.forEach(c => {
+    customerEmailMap[c.name] = { email: c.email || '', cc: c.cc_email || '', bcc: c.bcc_email || '' }
+  })
+
   const itemsByOrder: { [key: number]: { flower_name: string; quantity: number; price_per_unit: number; subtotal: number }[] } = {}
   items?.forEach(it => {
     if (!itemsByOrder[it.order_id]) itemsByOrder[it.order_id] = []
     itemsByOrder[it.order_id].push(it)
   })
 
+  const itemIdCache: { [key: string]: string | null } = {}
+
   const successIds: number[] = []
   const errors: { order: string; message: string }[] = []
 
   for (const order of orders) {
     const orderItems = itemsByOrder[order.id] || []
-    const customerId = await findOrCreateCustomer(qbTokens.access_token, qbTokens.realm_id, order.customer_name)
+    const customerId = await findOrCreateCustomer(accessToken, realmId, order.customer_name)
 
-    const invoice = {
-      Line: orderItems.map(item => ({
+    if (!customerId) {
+      errors.push({ order: order.order_number, message: 'Could not match or create customer in QuickBooks' })
+      continue
+    }
+
+    const lines = []
+    for (const item of orderItems) {
+      const { name, variety } = parseFlowerName(item.flower_name)
+
+      if (itemIdCache[name] === undefined) {
+        itemIdCache[name] = await findOrCreateItem(accessToken, realmId, name)
+      }
+      const itemId = itemIdCache[name]
+
+      if (!itemId) {
+        errors.push({ order: order.order_number, message: `Could not find or create QuickBooks product for "${name}"` })
+        continue
+      }
+
+      lines.push({
         Amount: item.subtotal,
         DetailType: 'SalesItemLineDetail',
+        Description: variety,
         SalesItemLineDetail: {
-          ItemRef: { value: '1', name: item.flower_name },
+          ItemRef: { value: itemId, name },
           Qty: item.quantity,
           UnitPrice: item.price_per_unit,
         },
-      })),
+      })
+    }
+
+    if (lines.length === 0) {
+      errors.push({ order: order.order_number, message: 'No valid line items could be created' })
+      continue
+    }
+
+    const contact = customerEmailMap[order.customer_name]
+    const invoice: Record<string, unknown> = {
+      Line: lines,
       CustomerRef: { value: customerId },
       PrivateNote: `Carrier: ${order.carrier} | Truck: ${order.truck_id} | Order: ${order.order_number}`,
     }
+    if (contact?.email) invoice.BillEmail = { Address: contact.email }
+    if (contact?.cc) invoice.BillEmailCc = { Address: contact.cc }
+    if (contact?.bcc) invoice.BillEmailBcc = { Address: contact.bcc }
 
     const response = await fetch(
-      `https://quickbooks.api.intuit.com/v3/company/${qbTokens.realm_id}/invoice?minorversion=65`,
+      `https://quickbooks.api.intuit.com/v3/company/${realmId}/invoice?minorversion=65`,
       {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${qbTokens.access_token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify(invoice),
       }
     )
 
     const result = await response.json()
-    if (result.Fault) {
-      errors.push({ order: order.order_number, message: JSON.stringify(result.Fault) })
+    if (!response.ok || result.Fault) {
+      errors.push({ order: order.order_number, message: result.Fault ? JSON.stringify(result.Fault) : `HTTP ${response.status}: ${JSON.stringify(result)}` })
     } else {
       successIds.push(order.id)
     }
