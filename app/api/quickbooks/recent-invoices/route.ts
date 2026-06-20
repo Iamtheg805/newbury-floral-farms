@@ -13,7 +13,7 @@ export async function GET() {
   }
 
   const response = await fetch(
-    `https://quickbooks.api.intuit.com/v3/company/${qbTokens.realm_id}/query?query=${encodeURIComponent('SELECT * FROM Invoice ORDERBY MetaData.LastUpdatedTime DESC MAXRESULTS 5')}&minorversion=65`,
+    `https://quickbooks.api.intuit.com/v3/company/${qbTokens.realm_id}/query?query=${encodeURIComponent('SELECT * FROM Invoice ORDERBY MetaData.CreateTime DESC MAXRESULTS 5')}&minorversion=65`,
     { headers: { 'Authorization': `Bearer ${qbTokens.access_token}`, 'Accept': 'application/json' } }
   )
 
