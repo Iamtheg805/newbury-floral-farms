@@ -46,6 +46,7 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab:
           { label: 'Manage Inventory', id: 'inventory' },
           { label: 'Commission Tiers', id: 'tiers' },
           { label: 'User Access', id: 'users' },
+          { label: 'Company Settings', id: 'settings' },
         ].map(item => (
           <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', fontSize: '12px', color: activeTab === item.id ? '#185FA5' : '#444', fontWeight: activeTab === item.id ? '500' : '400', borderLeft: activeTab === item.id ? '2px solid #185FA5' : '2px solid transparent', background: activeTab === item.id ? '#f0f7ff' : 'transparent', border: 'none', cursor: 'pointer' }}>
             {item.label}
@@ -562,6 +563,84 @@ function UsersTab() {
   )
 }
 
+function SettingsTab() {
+  const [settings, setSettings] = useState({ name: '', address: '', city: '', state: '', zip: '', phone: '', email: '' })
+  const [loading, setLoading] = useState(true)
+  const [feedback, setFeedback] = useState('')
+
+  useEffect(() => {
+    fetch('/api/settings/get')
+      .then(r => r.json())
+      .then(data => {
+        if (data.settings) setSettings(data.settings)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
+
+  async function save() {
+    try {
+      const res = await fetch('/api/settings/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setFeedback('✓ Company info updated! This applies to all labels immediately.')
+      } else {
+        setFeedback('Could not save: ' + data.error)
+      }
+    } catch {
+      setFeedback('Could not save changes.')
+    }
+    setTimeout(() => setFeedback(''), 4000)
+  }
+
+  if (loading) return <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
+
+  return (
+    <div>
+      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Company Settings</div>
+      {feedback && <div style={{ marginBottom: '10px', fontSize: '12px', color: feedback.startsWith('✓') ? '#3B6D11' : '#A32D2D', background: feedback.startsWith('✓') ? '#EAF3DE' : '#FCEBEB', padding: '8px 12px', borderRadius: '8px' }}>{feedback}</div>}
+      <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1.25rem', maxWidth: '500px' }}>
+        <div style={{ fontSize: '12px', color: '#888', marginBottom: '16px' }}>This information appears on every printed shipping label. Changes apply instantly.</div>
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Company name</label>
+          <input value={settings.name} onChange={e => setSettings(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+        </div>
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Address</label>
+          <input value={settings.address} onChange={e => setSettings(p => ({ ...p, address: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+          <div>
+            <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>City</label>
+            <input value={settings.city} onChange={e => setSettings(p => ({ ...p, city: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>State</label>
+            <input value={settings.state} onChange={e => setSettings(p => ({ ...p, state: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>ZIP</label>
+            <input value={settings.zip} onChange={e => setSettings(p => ({ ...p, zip: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+          </div>
+        </div>
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Phone</label>
+          <input value={settings.phone} onChange={e => setSettings(p => ({ ...p, phone: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+        </div>
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Email</label>
+          <input value={settings.email} onChange={e => setSettings(p => ({ ...p, email: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+        </div>
+        <button onClick={save} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Save changes</button>
+      </div>
+    </div>
+  )
+}
+
 export default function Manager() {
   const [activeTab, setActiveTab] = useState('overview')
   const [leaderboard, setLeaderboard] = useState<LeaderboardRep[]>([])
@@ -588,6 +667,7 @@ export default function Manager() {
         {activeTab === 'inventory' && <InventoryTab />}
         {activeTab === 'tiers' && <TiersTab leaderboard={leaderboard} />}
         {activeTab === 'users' && <UsersTab />}
+        {activeTab === 'settings' && <SettingsTab />}
       </div>
     </div>
   )
