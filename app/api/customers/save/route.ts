@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     notes: body.notes || '',
     cc_email: body.cc_email || '',
     bcc_email: body.bcc_email || '',
+    charges_cc_fee: body.charges_cc_fee || false,
   }
 
   if (body.id) {
