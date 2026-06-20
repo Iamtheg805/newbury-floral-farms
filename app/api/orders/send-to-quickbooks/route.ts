@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
 
   const successIds: number[] = []
   const errors: { order: string; message: string }[] = []
+  let emailsSent = 0
 
   for (const order of orders) {
     const orderItems = itemsByOrder[order.id] || []
@@ -182,8 +183,24 @@ export async function POST(request: NextRequest) {
     const result = await response.json()
     if (!response.ok || result.Fault) {
       errors.push({ order: order.order_number, message: result.Fault ? JSON.stringify(result.Fault) : `HTTP ${response.status}: ${JSON.stringify(result)}` })
-    } else {
-      successIds.push(order.id)
+      continue
+    }
+
+    successIds.push(order.id)
+
+    if (contact?.email) {
+      try {
+        const sendResponse = await fetch(
+          `https://quickbooks.api.intuit.com/v3/company/${realmId}/invoice/${result.Invoice.Id}/send?minorversion=65`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' },
+          }
+        )
+        if (sendResponse.ok) emailsSent++
+      } catch (e) {
+        console.log('Could not auto-send invoice email:', e)
+      }
     }
   }
 
@@ -191,5 +208,5 @@ export async function POST(request: NextRequest) {
     await supabase.from('orders').update({ invoiced: true }).in('id', successIds)
   }
 
-  return NextResponse.json({ success: true, invoiced: successIds.length, errors })
+  return NextResponse.json({ success: true, invoiced: successIds.length, emailsSent, errors })
 }
