@@ -26,8 +26,9 @@ export default function Home() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9f9f8' }}>
       <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '340px', border: '0.5px solid #e5e5e3', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '22px', fontWeight: 600, color: '#111' }}>Newbury Floral Farms</div>
-          <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>Sales portal — sign in to continue</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Newbury Floral Farms" style={{ height: '90px', width: 'auto', marginBottom: '12px' }} />
+          <div style={{ fontSize: '12px', color: '#888' }}>Sales portal — sign in to continue</div>
         </div>
         <div style={{ marginBottom: '10px' }}>
           <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Email address</label>
