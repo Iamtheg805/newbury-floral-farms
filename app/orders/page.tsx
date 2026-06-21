@@ -22,9 +22,47 @@ type CompanySettings = { name: string; address: string; city: string; state: str
 let orderCounter = 20414
 const CC_FEE_RATE = 0.0299
 
-function barcodePattern() {
-  const pattern = [3, 1, 2, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 3, 1, 2, 2, 1, 3, 1]
-  return pattern.map((w, i) => `<span style="display:inline-block;width:${w}px;height:${12 + (i % 5) * 5}px;background:#111;margin-right:1px;"></span>`).join('')
+const CODE128_TABLE = [
+  "212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+  "221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+  "221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+  "212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+  "231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+  "231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+  "314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+  "112412","122114","122411","142112","142211","241211","221114","413111","241112","134111",
+  "111242","121142","121241","114212","124112","124211","411212","421112","421211","212141",
+  "214121","412121","111143","111341","131141","114113","114311","411113","411311","113141",
+  "114131","311141","411131","211412","211214","211232","2331112",
+]
+
+function code128Bars(text: string) {
+  const values = [104]
+  for (const ch of text) {
+    values.push(ch.charCodeAt(0) - 32)
+  }
+  let checksum = values[0]
+  for (let i = 1; i < values.length; i++) {
+    checksum += values[i] * i
+  }
+  checksum = checksum % 103
+  values.push(checksum)
+  values.push(106)
+
+  const bars: { width: number; isBar: boolean }[] = []
+  values.forEach(v => {
+    const pattern = CODE128_TABLE[v]
+    for (let i = 0; i < pattern.length; i++) {
+      bars.push({ width: parseInt(pattern[i], 10), isBar: i % 2 === 0 })
+    }
+  })
+  return bars
+}
+
+function barcodeHTML(orderNumber: string) {
+  const bars = code128Bars(orderNumber)
+  const unitPx = 1.6
+  return bars.map(b => `<span style="display:inline-block;width:${b.width * unitPx}px;height:38px;background:${b.isBar ? '#111' : 'transparent'};"></span>`).join('')
 }
 
 export default function Orders() {
@@ -221,8 +259,8 @@ export default function Orders() {
           `).join('')}
         </div>
         <div style="border-top:2px solid #111;padding-top:8px;text-align:center;">
-          <div style="display:flex;justify-content:center;align-items:flex-end;height:40px;gap:1px;margin-bottom:5px;">
-            ${barcodePattern()}
+          <div style="display:flex;justify-content:center;align-items:center;height:42px;margin-bottom:3px;">
+            ${barcodeHTML(o.id)}
           </div>
           <div style="font-size:10px;display:flex;justify-content:space-between;">
             <span>${o.id}</span><span>${date}</span>
@@ -639,7 +677,9 @@ body { background: white; }
                     ))}
                   </div>
                   <div style={{ borderTop: '1.5px solid #111', paddingTop: '6px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '6px', color: '#aaa', marginBottom: '4px' }}>(barcode prints on actual label)</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', height: '24px', marginBottom: '4px', alignItems: 'center', overflow: 'hidden' }}>
+                      <div dangerouslySetInnerHTML={{ __html: barcodeHTML(o.id) }} style={{ transform: 'scale(1)', transformOrigin: 'center' }} />
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px' }}>
                       <span>{o.id}</span>
                       <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
