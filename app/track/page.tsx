@@ -23,6 +23,31 @@ const STAGES = [
   { key: 'delivered', label: 'Delivered to Logistics', icon: '✓', verb: 'Delivered to logistics partner' },
 ]
 
+const HOW_IT_WORKS = [
+  { icon: '📋', title: 'You place your order', desc: 'Your sales rep enters your order and it\u2019s confirmed on our end.' },
+  { icon: '✂️', title: 'We cut, pack & prepare', desc: 'Your flowers are freshly packed and staged for shipment.' },
+  { icon: '🚚', title: 'Handed off for delivery', desc: 'Your order is delivered to our logistics partner and on its way to you.' },
+]
+
+const FAQS = [
+  {
+    q: 'Where is my order?',
+    a: 'Enter your order number above to see real-time status. If it shows "Delivered to Logistics," your order has left our facility and is in your carrier\u2019s hands for final delivery.',
+  },
+  {
+    q: 'Why is my tracking information missing or hasn\u2019t updated?',
+    a: 'Tracking updates as your order moves through each stage of our process. If it hasn\u2019t changed in a while, it may simply still be in that stage \u2014 feel free to reach out to your sales rep for a status check.',
+  },
+  {
+    q: 'My order number isn\u2019t working \u2014 what do I do?',
+    a: 'Double-check the order number from your invoice or confirmation (it looks like ORD-XXXXX). If it still doesn\u2019t work, contact your sales rep and we\u2019ll look it up for you.',
+  },
+  {
+    q: 'How do I place a new order?',
+    a: 'Reach out to your usual sales rep directly, or contact us using the information below \u2014 we\u2019d love to get your next order started.',
+  },
+]
+
 function fmtTime(iso: string | null) {
   if (!iso) return ''
   return new Date(iso).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
@@ -35,6 +60,7 @@ function TrackContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [settings, setSettings] = useState<Settings>({ name: 'Newbury Floral Farms', phone: '', email: '' })
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   useEffect(() => {
     fetch('/api/settings/get').then(r => r.json()).then(d => { if (d.settings) setSettings(d.settings) }).catch(() => {})
@@ -83,56 +109,102 @@ function TrackContent() {
     'We\'ve got your order and we\'re getting it ready.'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f9f9f8', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#ffffff', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
 
       {/* Top bar */}
-      <div style={{ borderBottom: '0.5px solid #e5e5e3', background: 'white', padding: '14px 1.5rem' }}>
-        <div style={{ maxWidth: '720px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ borderBottom: '0.5px solid #e5e5e3', background: 'white', padding: '16px 1.5rem' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt={settings.name} style={{ height: '36px', width: 'auto' }} />
-          <div style={{ fontSize: '13px', fontWeight: '500', color: '#111' }}>Order Tracking</div>
+          <img src="/logo.png" alt={settings.name} style={{ height: '38px', width: 'auto' }} />
         </div>
       </div>
 
       {!data && (
-        <div style={{ padding: '4rem 1.5rem' }}>
-          <div style={{ maxWidth: '560px', margin: '0 auto', textAlign: 'center' }}>
-            <div style={{ fontSize: '32px', fontWeight: '700', color: '#111', marginBottom: '12px', letterSpacing: '-0.02em' }}>
-              Track your flowers
-            </div>
-            <div style={{ fontSize: '15px', color: '#666', marginBottom: '2rem', lineHeight: '1.5' }}>
-              Follow your order&apos;s journey from our farm to your hands.
-            </div>
-            <div style={{ display: 'flex', gap: '8px', maxWidth: '440px', margin: '0 auto' }}>
-              <input
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') doSearch(input) }}
-                placeholder="Enter your order number (e.g. ORD-20416)"
-                style={{ flex: 1, padding: '14px 16px', borderRadius: '10px', border: '1.5px solid #ddd', fontSize: '14px', color: '#111', outline: 'none' }}
-              />
-              <button onClick={() => doSearch(input)} style={{ padding: '14px 24px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                Track
-              </button>
-            </div>
-            {loading && <div style={{ fontSize: '13px', color: '#888', marginTop: '1rem' }}>Looking up your order...</div>}
-            {error === 'not_found' && (
-              <div style={{ marginTop: '1.25rem', background: '#FCEBEB', borderRadius: '8px', padding: '12px 14px', fontSize: '13px', color: '#A32D2D', maxWidth: '440px', margin: '1.25rem auto 0' }}>
-                We couldn&apos;t find an order with that number. Double check it and try again, or reach out to your sales rep.
+        <>
+          {/* Hero */}
+          <div style={{ background: 'linear-gradient(180deg, #f9f9f8 0%, #ffffff 100%)', padding: '4.5rem 1.5rem 4rem', borderBottom: '0.5px solid #f0f0ee' }}>
+            <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+              <div style={{ fontSize: '38px', fontWeight: '700', color: '#111', marginBottom: '14px', letterSpacing: '-0.02em', lineHeight: '1.15' }}>
+                Track your flowers
               </div>
-            )}
+              <div style={{ fontSize: '16px', color: '#666', marginBottom: '2.25rem', lineHeight: '1.5' }}>
+                Enter your order number to follow its journey from our farm to your door.
+              </div>
+              <div style={{ display: 'flex', gap: '8px', maxWidth: '460px', margin: '0 auto' }}>
+                <input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') doSearch(input) }}
+                  placeholder="Enter order number (e.g. ORD-20416)"
+                  style={{ flex: 1, padding: '15px 16px', borderRadius: '10px', border: '1.5px solid #ddd', fontSize: '14px', color: '#111', outline: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}
+                />
+                <button onClick={() => doSearch(input)} style={{ padding: '15px 26px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Track
+                </button>
+              </div>
+              {loading && <div style={{ fontSize: '13px', color: '#888', marginTop: '1rem' }}>Looking up your order...</div>}
+              {error === 'not_found' && (
+                <div style={{ marginTop: '1.25rem', background: '#FCEBEB', borderRadius: '8px', padding: '12px 14px', fontSize: '13px', color: '#A32D2D', maxWidth: '460px', margin: '1.25rem auto 0' }}>
+                  We couldn&apos;t find an order with that number. Double check it and try again, or reach out to your sales rep.
+                </div>
+              )}
+            </div>
+          </div>
 
-            {/* How it works */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginTop: '4rem', textAlign: 'center' }}>
-              {STAGES.map(s => (
-                <div key={s.key}>
-                  <div style={{ fontSize: '26px', marginBottom: '8px' }}>{s.icon}</div>
-                  <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', lineHeight: '1.3' }}>{s.label}</div>
+          {/* How it works */}
+          <div style={{ padding: '4rem 1.5rem', borderBottom: '0.5px solid #f0f0ee' }}>
+            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+              <div style={{ fontSize: '22px', fontWeight: '700', color: '#111', textAlign: 'center', marginBottom: '2.5rem', letterSpacing: '-0.01em' }}>
+                How it works
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }}>
+                {HOW_IT_WORKS.map((step, i) => (
+                  <div key={i} style={{ textAlign: 'center' }}>
+                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#E6F1FB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', margin: '0 auto 16px' }}>
+                      {step.icon}
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#111', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{step.title}</div>
+                    <div style={{ fontSize: '13px', color: '#888', lineHeight: '1.6' }}>{step.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* FAQs */}
+          <div style={{ padding: '4rem 1.5rem' }}>
+            <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+              <div style={{ fontSize: '22px', fontWeight: '700', color: '#111', textAlign: 'center', marginBottom: '2rem', letterSpacing: '-0.01em' }}>
+                Frequently asked questions
+              </div>
+              {FAQS.map((f, i) => (
+                <div key={i} style={{ borderBottom: '0.5px solid #e5e5e3' }}>
+                  <button
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    style={{ width: '100%', textAlign: 'left', padding: '18px 4px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}
+                  >
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#111' }}>{f.q}</span>
+                    <span style={{ fontSize: '18px', color: '#888', flexShrink: 0, transform: openFaq === i ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s ease' }}>+</span>
+                  </button>
+                  {openFaq === i && (
+                    <div style={{ padding: '0 4px 18px', fontSize: '13px', color: '#666', lineHeight: '1.6' }}>
+                      {f.a}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
-        </div>
+
+          {/* Footer */}
+          <div style={{ borderTop: '0.5px solid #e5e5e3', padding: '2rem 1.5rem', textAlign: 'center', background: '#f9f9f8' }}>
+            <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginBottom: '4px' }}>{settings.name}</div>
+            <div style={{ fontSize: '12px', color: '#888' }}>
+              {settings.phone}{settings.phone && settings.email ? ' · ' : ''}{settings.email}
+            </div>
+            <div style={{ fontSize: '11px', color: '#aaa', marginTop: '10px' }}>© {new Date().getFullYear()} {settings.name}. All rights reserved.</div>
+          </div>
+        </>
       )}
 
       {data && (
