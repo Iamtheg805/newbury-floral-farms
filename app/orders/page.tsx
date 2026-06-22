@@ -12,7 +12,7 @@ const navItems = [
 
 const carriers = ['Armellini', 'Prime', 'Florida Beauty', 'Tawjo', 'Growers', 'FedEx']
 
-type Item = { name: string; price: number; unit: string; qty: number; sub: number }
+type Item = { flowerId: string; name: string; price: number; unit: string; qty: number; sub: number }
 type Order = { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: Item[]; itemsSubtotal: number; ccFee: number; total: number }
 type TodayOrder = { db_id: number; id: string; customer: string; carrier: string; truck: string; total: number; created_at: string; items: { name: string; qty: number; unit: string }[] }
 type CustomerOption = { id: number; name: string; phone: string; adress: string; city: string; state: string; zip: string; charges_cc_fee: boolean }
@@ -38,23 +38,16 @@ const CODE128_TABLE = [
 
 function code128Bars(text: string) {
   const values = [104]
-  for (const ch of text) {
-    values.push(ch.charCodeAt(0) - 32)
-  }
+  for (const ch of text) values.push(ch.charCodeAt(0) - 32)
   let checksum = values[0]
-  for (let i = 1; i < values.length; i++) {
-    checksum += values[i] * i
-  }
+  for (let i = 1; i < values.length; i++) checksum += values[i] * i
   checksum = checksum % 103
   values.push(checksum)
   values.push(106)
-
   const bars: { width: number; isBar: boolean }[] = []
   values.forEach(v => {
     const pattern = CODE128_TABLE[v]
-    for (let i = 0; i < pattern.length; i++) {
-      bars.push({ width: parseInt(pattern[i], 10), isBar: i % 2 === 0 })
-    }
+    for (let i = 0; i < pattern.length; i++) bars.push({ width: parseInt(pattern[i], 10), isBar: i % 2 === 0 })
   })
   return bars
 }
@@ -63,6 +56,10 @@ function barcodeHTML(orderNumber: string) {
   const bars = code128Bars(orderNumber)
   const unitPx = 1.6
   return bars.map(b => `<span style="display:inline-block;width:${b.width * unitPx}px;height:38px;background:${b.isBar ? '#111' : 'transparent'};"></span>`).join('')
+}
+
+function flowerDisplayName(f: FlowerOption) {
+  return f.variety && f.variety.trim() ? `${f.name} (${f.variety})` : f.name
 }
 
 export default function Orders() {
@@ -86,18 +83,15 @@ export default function Orders() {
   const [settings, setSettings] = useState<CompanySettings>({ name: 'Newbury Floral Farms', address: '1200 Harbor Blvd', city: 'Oxnard', state: 'CA', zip: '93033', phone: '(805) 555-0100', email: 'dispatch@newburyfloral.com' })
 
   function blankItem(opts: FlowerOption[]): Item {
-    if (opts.length === 0) return { name: '', price: 0, unit: 'bunch', qty: 1, sub: 0 }
+    if (opts.length === 0) return { flowerId: '', name: '', price: 0, unit: 'bunch', qty: 1, sub: 0 }
     const f = opts[0]
-    return { name: `${f.name} (${f.variety})`, price: f.price, unit: f.unit, qty: 1, sub: f.price }
+    return { flowerId: String(f.id), name: flowerDisplayName(f), price: f.price, unit: f.unit, qty: 1, sub: f.price }
   }
 
   function loadTodaysOrders(repId: string) {
     fetch(`/api/orders/today?rep_id=${repId}`)
       .then(r => r.json())
-      .then(data => {
-        setTodaysOrders(data.orders || [])
-        setLoadingToday(false)
-      })
+      .then(data => { setTodaysOrders(data.orders || []); setLoadingToday(false) })
       .catch(() => setLoadingToday(false))
   }
 
@@ -106,30 +100,15 @@ export default function Orders() {
     const initials = localStorage.getItem('user_initials') || name.split(' ').map(w => w[0]).join('').toUpperCase() || '?'
     setUserName(name)
     setUserInitials(initials)
-
     const repId = localStorage.getItem('user_id') || ''
-
-    fetch('/api/settings/get')
-      .then(r => r.json())
-      .then(data => { if (data.settings) setSettings(data.settings) })
-      .catch(() => {})
-
-    fetch('/api/flowers/list')
-      .then(r => r.json())
-      .then(data => {
-        const opts: FlowerOption[] = (data.flowers || []).map((f: { id: number; name: string; variety: string; unit: string; price: number }) => ({ id: f.id, name: f.name, variety: f.variety, unit: f.unit, price: f.price }))
-        setFlowerOptions(opts)
-        setItems([blankItem(opts)])
-      })
-      .catch(() => setFlowerOptions([]))
-
+    fetch('/api/settings/get').then(r => r.json()).then(data => { if (data.settings) setSettings(data.settings) }).catch(() => {})
+    fetch('/api/flowers/list').then(r => r.json()).then(data => {
+      const opts: FlowerOption[] = (data.flowers || []).map((f: FlowerOption) => ({ id: f.id, name: f.name, variety: f.variety, unit: f.unit, price: f.price }))
+      setFlowerOptions(opts)
+      setItems([blankItem(opts)])
+    }).catch(() => setFlowerOptions([]))
     if (!repId) { setLoadingToday(false); return }
-
-    fetch(`/api/customers/list?rep_id=${repId}`)
-      .then(r => r.json())
-      .then(data => setCustomers(data.customers || []))
-      .catch(() => setCustomers([]))
-
+    fetch(`/api/customers/list?rep_id=${repId}`).then(r => r.json()).then(data => setCustomers(data.customers || [])).catch(() => setCustomers([]))
     loadTodaysOrders(repId)
   }, [step])
 
@@ -148,9 +127,10 @@ export default function Orders() {
 
   function handleItemChange(index: number, field: string, value: string) {
     const updated = [...items]
-    if (field === 'name') {
-      const flower = flowerOptions.find(f => `${f.name} (${f.variety})` === value)!
-      updated[index] = { ...updated[index], name: value, price: flower.price, unit: flower.unit, sub: flower.price * updated[index].qty }
+    if (field === 'flowerId') {
+      const flower = flowerOptions.find(f => String(f.id) === value)
+      if (!flower) return
+      updated[index] = { ...updated[index], flowerId: value, name: flowerDisplayName(flower), price: flower.price, unit: flower.unit, sub: flower.price * updated[index].qty }
     } else if (field === 'qty') {
       const qty = parseInt(value) || 1
       updated[index] = { ...updated[index], qty, sub: updated[index].price * qty }
@@ -161,13 +141,8 @@ export default function Orders() {
     setItems(updated)
   }
 
-  function addItem() {
-    setItems([...items, blankItem(flowerOptions)])
-  }
-
-  function removeItem(index: number) {
-    setItems(items.filter((_, i) => i !== index))
-  }
+  function addItem() { setItems([...items, blankItem(flowerOptions)]) }
+  function removeItem(index: number) { setItems(items.filter((_, i) => i !== index)) }
 
   const itemsSubtotal = items.reduce((s, i) => s + i.sub, 0)
   const ccFee = customerChargesFee ? itemsSubtotal * CC_FEE_RATE : 0
@@ -185,9 +160,7 @@ export default function Orders() {
     setTimeout(() => setFeedback(''), 3000)
   }
 
-  function removeFromBatch(index: number) {
-    setBatch(prev => prev.filter((_, i) => i !== index))
-  }
+  function removeFromBatch(index: number) { setBatch(prev => prev.filter((_, i) => i !== index)) }
 
   const batchTotal = batch.reduce((s, o) => s + o.total, 0)
   const batchSubtotal = batch.reduce((s, o) => s + o.itemsSubtotal, 0)
@@ -209,26 +182,17 @@ export default function Orders() {
             total: order.total,
             cc_fee_amount: order.ccFee,
             rep_id: repId,
-            items: order.items.map(it => ({
-              name: it.name,
-              qty: it.qty,
-              price: it.price,
-              sub: it.sub,
-              unit: it.unit,
-            })),
+            items: order.items.map(it => ({ name: it.name, qty: it.qty, price: it.price, sub: it.sub, unit: it.unit })),
           }),
         })
         await res.json()
-      } catch (e) {
-        console.log('Save error:', e)
-      }
+      } catch (e) { console.log('Save error:', e) }
     }
   }
 
   function buildLabelHTML(labelOrders: { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: { name: string; qty: number }[] }[]) {
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const repName = localStorage.getItem('user_name') || 'Rep'
-
     const labelsHTML = labelOrders.map(o => `
       <div style="width:4in;height:6in;padding:0.2in;font-family:monospace;font-size:9px;color:#111;page-break-after:always;box-sizing:border-box;">
         <div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px;">
@@ -252,35 +216,15 @@ export default function Orders() {
         </div>
         <div style="font-size:8px;color:#888;margin-bottom:4px;">ITEMS</div>
         <div style="border-top:0.5px solid #ddd;padding-top:4px;margin-bottom:10px;">
-          ${o.items.map(it => `
-            <div style="display:flex;justify-content:space-between;line-height:2;font-size:11px;">
-              <span>${it.name} x ${it.qty}</span>
-            </div>
-          `).join('')}
+          ${o.items.map(it => `<div style="line-height:2;font-size:11px;">${it.name} x ${it.qty}</div>`).join('')}
         </div>
         <div style="border-top:2px solid #111;padding-top:8px;text-align:center;">
-          <div style="display:flex;justify-content:center;align-items:center;height:42px;margin-bottom:3px;">
-            ${barcodeHTML(o.id)}
-          </div>
-          <div style="font-size:10px;display:flex;justify-content:space-between;">
-            <span>${o.id}</span><span>${date}</span>
-          </div>
+          <div style="display:flex;justify-content:center;align-items:center;height:42px;margin-bottom:3px;">${barcodeHTML(o.id)}</div>
+          <div style="font-size:10px;display:flex;justify-content:space-between;"><span>${o.id}</span><span>${date}</span></div>
         </div>
       </div>
     `).join('')
-
-    return `<!DOCTYPE html>
-<html>
-<head>
-<title>${settings.name} — Labels</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: white; }
-@page { size: 4in 6in; margin: 0; }
-</style>
-</head>
-<body>${labelsHTML}</body>
-</html>`
+    return `<!DOCTYPE html><html><head><title>${settings.name} — Labels</title><style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: white; } @page { size: 4in 6in; margin: 0; }</style></head><body>${labelsHTML}</body></html>`
   }
 
   function printLabels() {
@@ -289,55 +233,30 @@ body { background: white; }
     const blob = new Blob([fullHTML], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const printWindow = window.open(url)
-    if (printWindow) {
-      printWindow.onload = () => {
-        setTimeout(() => { printWindow.print() }, 500)
-      }
-    }
+    if (printWindow) printWindow.onload = () => setTimeout(() => { printWindow.print() }, 500)
     setPrinted(true)
   }
 
   function reprintLabel(o: TodayOrder) {
     const found = customers.find(c => c.name === o.customer)
     const fullAddr = found ? [found.adress, found.city, found.state].filter(Boolean).join(', ') + (found.zip ? ` ${found.zip}` : '') : 'Address on file'
-    const labelOrder = {
-      id: o.id,
-      customer: o.customer,
-      addr: fullAddr,
-      phone: found?.phone || '',
-      carrier: o.carrier,
-      truck: o.truck,
-      items: o.items.map(it => ({ name: it.name, qty: it.qty })),
-    }
-    const fullHTML = buildLabelHTML([labelOrder])
+    const fullHTML = buildLabelHTML([{ id: o.id, customer: o.customer, addr: fullAddr, phone: found?.phone || '', carrier: o.carrier, truck: o.truck, items: o.items.map(it => ({ name: it.name, qty: it.qty })) }])
     const blob = new Blob([fullHTML], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const printWindow = window.open(url)
-    if (printWindow) {
-      printWindow.onload = () => {
-        setTimeout(() => { printWindow.print() }, 500)
-      }
-    }
+    if (printWindow) printWindow.onload = () => setTimeout(() => { printWindow.print() }, 500)
   }
 
   async function deleteOrder(o: TodayOrder) {
-    if (!confirm(`Delete order ${o.id} for ${o.customer}? This removes it from all reports and stats.`)) return
+    if (!confirm(`Delete order ${o.id} for ${o.customer}?`)) return
     try {
-      await fetch('/api/orders/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: o.db_id }),
-      })
-      const repId = localStorage.getItem('user_id') || ''
-      loadTodaysOrders(repId)
-    } catch {
-      alert('Could not delete order.')
-    }
+      await fetch('/api/orders/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: o.db_id }) })
+      loadTodaysOrders(localStorage.getItem('user_id') || '')
+    } catch { alert('Could not delete order.') }
   }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
-
       {/* Sidebar */}
       <div style={{ width: '200px', background: '#ffffff', borderRight: '0.5px solid #e5e5e3', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #e5e5e3' }}>
@@ -353,9 +272,7 @@ body { background: white; }
         </div>
         <div style={{ padding: '4px 0' }}>
           {navItems.map(item => (
-            <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', textDecoration: 'none' }}>
-              {item.label}
-            </a>
+            <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', textDecoration: 'none' }}>{item.label}</a>
           ))}
         </div>
         <a href="/" style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', textDecoration: 'none', display: 'block' }}>Sign out</a>
@@ -363,7 +280,6 @@ body { background: white; }
 
       {/* Main */}
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
-
         {/* Step indicator */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.25rem' }}>
           {(['add', 'review', 'print'] as const).map((s, i) => (
@@ -377,13 +293,11 @@ body { background: white; }
           ))}
         </div>
 
-        {/* Today's orders — reprint/delete panel */}
+        {/* Today's orders reprint/delete panel */}
         {step === 'add' && !loadingToday && todaysOrders.length > 0 && (
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
-            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-              Today&apos;s orders — reprint or remove if needed
-            </div>
-            <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '10px' }}>This list resets at midnight — only today&apos;s orders can be managed here.</div>
+            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Today&apos;s orders — reprint or remove if needed</div>
+            <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '10px' }}>This list resets at midnight.</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
               {todaysOrders.map(o => (
                 <div key={o.db_id} style={{ background: '#f9f9f8', borderRadius: '8px', padding: '10px', border: '0.5px solid #e5e5e3' }}>
@@ -393,12 +307,8 @@ body { background: white; }
                   </div>
                   <div style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace', marginBottom: '6px' }}>{o.id} · {o.carrier}</div>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <button onClick={() => reprintLabel(o)} style={{ flex: 1, padding: '6px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
-                      🖨️ Reprint
-                    </button>
-                    <button onClick={() => deleteOrder(o)} style={{ padding: '6px 10px', background: '#FCEBEB', color: '#A32D2D', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
-                      Delete
-                    </button>
+                    <button onClick={() => reprintLabel(o)} style={{ flex: 1, padding: '6px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>🖨️ Reprint</button>
+                    <button onClick={() => deleteOrder(o)} style={{ padding: '6px 10px', background: '#FCEBEB', color: '#A32D2D', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -406,17 +316,15 @@ body { background: white; }
           </div>
         )}
 
-        {/* STEP 1 - Add orders */}
+        {/* STEP 1 */}
         {step === 'add' && (
           <div style={{ display: 'flex', gap: '12px' }}>
             <div style={{ flex: 1 }}>
+              {/* Customer */}
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Customer</div>
-                <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Select customer</label>
                 {customers.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: '#888', background: '#f9f9f8', padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
-                    No customers yet. <a href="/customers" style={{ color: '#185FA5' }}>Add one first →</a>
-                  </div>
+                  <div style={{ fontSize: '12px', color: '#888', background: '#f9f9f8', padding: '10px', borderRadius: '8px' }}>No customers yet. <a href="/customers" style={{ color: '#185FA5' }}>Add one first →</a></div>
                 ) : (
                   <select value={customer} onChange={e => handleCustomerChange(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', marginBottom: '10px', color: '#111' }}>
                     <option value=''>— choose customer —</option>
@@ -425,7 +333,7 @@ body { background: white; }
                 )}
                 {customerChargesFee && (
                   <div style={{ marginBottom: '10px', background: '#FAEEDA', borderRadius: '8px', padding: '8px 12px', fontSize: '11px', color: '#854F0B' }}>
-                    💳 This customer is charged a 2.99% credit card fee automatically — it&apos;ll be added to the total below.
+                    💳 2.99% credit card fee will be added automatically.
                   </div>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -440,12 +348,11 @@ body { background: white; }
                 </div>
               </div>
 
+              {/* Items */}
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Items</div>
                 {flowerOptions.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: '#888', background: '#f9f9f8', padding: '10px', borderRadius: '8px' }}>
-                    No flowers in inventory yet. Ask your manager to add some.
-                  </div>
+                  <div style={{ fontSize: '12px', color: '#888', background: '#f9f9f8', padding: '10px', borderRadius: '8px' }}>No flowers in inventory yet. Ask your manager to add some.</div>
                 ) : (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 55px 80px 70px 24px', gap: '5px', paddingBottom: '6px', borderBottom: '0.5px solid #f0f0ee', marginBottom: '8px' }}>
@@ -453,8 +360,8 @@ body { background: white; }
                     </div>
                     {items.map((item, i) => (
                       <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 55px 80px 70px 24px', gap: '5px', marginBottom: '6px', alignItems: 'center' }}>
-                        <select value={item.name} onChange={e => handleItemChange(i, 'name', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
-                          {flowerOptions.map(f => <option key={f.id}>{f.name} ({f.variety})</option>)}
+                        <select value={item.flowerId} onChange={e => handleItemChange(i, 'flowerId', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
+                          {flowerOptions.map(f => <option key={f.id} value={String(f.id)}>{flowerDisplayName(f)}</option>)}
                         </select>
                         <input type="number" value={item.qty} min={1} onChange={e => handleItemChange(i, 'qty', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
                         <input type="number" value={item.price} min={0} step={0.01} onChange={e => handleItemChange(i, 'price', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
@@ -467,6 +374,7 @@ body { background: white; }
                 )}
               </div>
 
+              {/* Logistics */}
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Logistics</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -483,15 +391,14 @@ body { background: white; }
                 </div>
               </div>
 
+              {/* Totals */}
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontSize: '12px', color: '#888' }}>Items subtotal: <span style={{ color: '#111' }}>${itemsSubtotal.toFixed(2)}</span></div>
-                    {customerChargesFee && (
-                      <div style={{ fontSize: '12px', color: '#854F0B', marginTop: '2px' }}>+ Credit card fee (2.99%): ${ccFee.toFixed(2)}</div>
-                    )}
+                    {customerChargesFee && <div style={{ fontSize: '12px', color: '#854F0B', marginTop: '2px' }}>+ CC fee (2.99%): ${ccFee.toFixed(2)}</div>}
                     <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginTop: '2px' }}>Order total: <span style={{ color: '#185FA5' }}>${total.toFixed(2)}</span></div>
-                    <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>Commission (7% of product sales): <span style={{ color: '#3B6D11' }}>${commission.toFixed(2)}</span></div>
+                    <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>Commission (7%): <span style={{ color: '#3B6D11' }}>${commission.toFixed(2)}</span></div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button onClick={addToBatch} style={{ padding: '8px 16px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>+ Add to batch</button>
@@ -562,11 +469,7 @@ body { background: white; }
           <div>
             <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Review batch — {batch.length} orders</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
-              {[
-                { label: 'Total orders', value: batch.length.toString() },
-                { label: 'Batch total', value: `$${batchTotal.toFixed(2)}` },
-                { label: 'Commission (7%)', value: `$${batchComm.toFixed(2)}` },
-              ].map(m => (
+              {[{ label: 'Total orders', value: batch.length.toString() }, { label: 'Batch total', value: `$${batchTotal.toFixed(2)}` }, { label: 'Commission (7%)', value: `$${batchComm.toFixed(2)}` }].map(m => (
                 <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
                   <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
                   <div style={{ fontSize: '20px', fontWeight: '600', color: '#111' }}>{m.value}</div>
@@ -576,11 +479,7 @@ body { background: white; }
             <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
               <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr>
-                    {['Order #', 'Customer', 'Items', 'CC fee', 'Total', 'Carrier', ''].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>
-                    ))}
-                  </tr>
+                  <tr>{['Order #', 'Customer', 'Items', 'CC fee', 'Total', 'Carrier', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {batch.map((o, i) => (
@@ -591,21 +490,15 @@ body { background: white; }
                       <td style={{ padding: '8px', color: '#854F0B', borderBottom: '0.5px solid #f0f0ee' }}>{o.ccFee > 0 ? `$${o.ccFee.toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${o.total.toFixed(2)}</td>
                       <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{o.carrier}</td>
-                      <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                        <button onClick={() => removeFromBatch(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button>
-                      </td>
+                      <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}><button onClick={() => removeFromBatch(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button onClick={() => setStep('print')} style={{ padding: '9px 18px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
-                Finalize & print all labels →
-              </button>
-              <button onClick={() => setStep('add')} style={{ padding: '9px 14px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
-                ← Back
-              </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setStep('print')} style={{ padding: '9px 18px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Finalize & print all labels →</button>
+              <button onClick={() => setStep('add')} style={{ padding: '9px 14px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>← Back</button>
             </div>
           </div>
         )}
@@ -615,38 +508,26 @@ body { background: white; }
           <div>
             <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Labels ready to print</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
-              {[
-                { label: 'Labels to print', value: batch.length.toString() },
-                { label: 'Batch total', value: `$${batchTotal.toFixed(2)}` },
-                { label: 'Commission earned', value: `$${batchComm.toFixed(2)}` },
-              ].map(m => (
+              {[{ label: 'Labels to print', value: batch.length.toString() }, { label: 'Batch total', value: `$${batchTotal.toFixed(2)}` }, { label: 'Commission earned', value: `$${batchComm.toFixed(2)}` }].map(m => (
                 <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
                   <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
                   <div style={{ fontSize: '20px', fontWeight: '600', color: '#111' }}>{m.value}</div>
                 </div>
               ))}
             </div>
-
             <div style={{ marginBottom: '1rem', background: '#E6F1FB', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#0C447C' }}>
-              ℹ️ These orders are saved and will appear in <strong>Manager → Pending Invoices</strong> for review before being sent to QuickBooks.
+              ℹ️ Orders are saved and will appear in <strong>Manager → Pending Invoices</strong> before being sent to QuickBooks.
             </div>
-
             <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
               {!printed ? (
                 <button onClick={() => { saveOrders(); printLabels() }} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
                   🖨️ Print all {batch.length} labels
                 </button>
               ) : (
-                <div style={{ background: '#EAF3DE', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#3B6D11' }}>
-                  ✓ {batch.length} labels sent to printer!
-                </div>
+                <div style={{ background: '#EAF3DE', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#3B6D11' }}>✓ {batch.length} labels sent to printer!</div>
               )}
-              <button onClick={() => { setBatch([]); setStep('add'); setPrinted(false) }} style={{ padding: '9px 14px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
-                ✓ Done — start new batch
-              </button>
+              <button onClick={() => { setBatch([]); setStep('add'); setPrinted(false) }} style={{ padding: '9px 14px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>✓ Done — start new batch</button>
             </div>
-
-            {/* Label previews on screen */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {batch.map(o => (
                 <div key={o.id} style={{ background: 'white', border: '1.5px solid #ccc', borderRadius: '4px', padding: '14px', fontFamily: 'monospace', fontSize: '8px', color: '#111' }}>
@@ -662,23 +543,16 @@ body { background: white; }
                       <div>{o.truck}</div>
                     </div>
                   </div>
-                  <div style={{ fontSize: '7px', color: '#888', marginBottom: '3px', letterSpacing: '0.05em' }}>SHIP TO</div>
-                  <div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '6px', letterSpacing: '0.02em' }}>{o.customer}</div>
-                  <div style={{ marginBottom: '8px', lineHeight: '1.6' }}>
-                    <div>{o.addr}</div>
-                    <div>{o.phone}</div>
-                  </div>
+                  <div style={{ fontSize: '7px', color: '#888', marginBottom: '3px' }}>SHIP TO</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '6px' }}>{o.customer}</div>
+                  <div style={{ marginBottom: '8px', lineHeight: '1.6' }}><div>{o.addr}</div><div>{o.phone}</div></div>
                   <div style={{ fontSize: '7px', color: '#888', marginBottom: '3px' }}>ITEMS</div>
                   <div style={{ borderTop: '0.5px solid #ddd', paddingTop: '3px', marginBottom: '6px' }}>
-                    {o.items.map((it, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', lineHeight: '1.8' }}>
-                        <span>{it.name} x {it.qty}</span>
-                      </div>
-                    ))}
+                    {o.items.map((it, idx) => <div key={idx} style={{ lineHeight: '1.8' }}>{it.name} x {it.qty}</div>)}
                   </div>
                   <div style={{ borderTop: '1.5px solid #111', paddingTop: '6px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', height: '24px', marginBottom: '4px', alignItems: 'center', overflow: 'hidden' }}>
-                      <div dangerouslySetInnerHTML={{ __html: barcodeHTML(o.id) }} style={{ transform: 'scale(1)', transformOrigin: 'center' }} />
+                      <div dangerouslySetInnerHTML={{ __html: barcodeHTML(o.id) }} />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px' }}>
                       <span>{o.id}</span>
