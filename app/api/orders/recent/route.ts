@@ -21,6 +21,7 @@ export async function GET() {
   profiles?.forEach(p => { profileMap[p.id] = p.full_name })
 
   const result = (orders || []).map(o => ({
+    order_number: o.order_number,
     time: new Date(o.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
     rep: profileMap[o.rep_id] || 'Unknown',
     customer: o.customer_name,
