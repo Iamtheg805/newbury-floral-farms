@@ -62,6 +62,7 @@ function Sidebar({ activeTab, setActiveTab, pendingCount }: { activeTab: string;
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Flower Availability', href: '/flowers' },
           { label: 'New Order', href: '/orders' },
+          { label: 'Scan Station', href: '/scan' },
         ].map(item => (
           <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: '#444', textDecoration: 'none' }}>{item.label}</a>
         ))}
@@ -78,7 +79,7 @@ function OverviewTab({ leaderboard, recentOrders, loading }: { leaderboard: Lead
 
   return (
     <div>
-      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Overview — this month</div>
+      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Overview -- this month</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
         {[
           { label: 'Total revenue (this month)', value: loading ? '...' : `$${totalRevenue.toLocaleString()}`, sub: `${leaderboard.length} active reps`, subColor: '#888' },
@@ -95,7 +96,7 @@ function OverviewTab({ leaderboard, recentOrders, loading }: { leaderboard: Lead
       </div>
 
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
-        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Rep performance — this month</div>
+        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Rep performance -- this month</div>
         {loading ? (
           <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
         ) : leaderboard.length === 0 ? (
@@ -125,7 +126,7 @@ function OverviewTab({ leaderboard, recentOrders, loading }: { leaderboard: Lead
       </div>
 
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Live sales feed — recent orders</div>
+        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Live sales feed -- recent orders</div>
         {recentOrders.length === 0 ? (
           <div style={{ fontSize: '12px', color: '#888', padding: '1rem 0' }}>No orders yet.</div>
         ) : (
@@ -159,11 +160,11 @@ function RepsTab({ leaderboard, loading }: { leaderboard: LeaderboardRep[]; load
   const totalComm = leaderboard.reduce((s, r) => s + r.commission, 0)
   return (
     <div>
-      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>All Reps — this month</div>
+      <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>All Reps -- this month</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
         {[
           { label: 'Total revenue', value: `$${totalRevenue.toLocaleString()}` },
-          { label: 'Top rep', value: leaderboard[0]?.name || '—' },
+          { label: 'Top rep', value: leaderboard[0]?.name || '--' },
           { label: 'Commission owed', value: `$${totalComm.toLocaleString()}` },
         ].map(m => (
           <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
@@ -319,7 +320,7 @@ function PendingInvoicesTab({ onCountChange }: { onCountChange: (n: number) => v
         ) : orders.length === 0 ? (
           <div style={{ fontSize: '12px', color: '#888', textAlign: 'center', padding: '2rem 0' }}>
             <div style={{ fontSize: '28px', marginBottom: '8px' }}>✓</div>
-            All caught up — no pending orders to invoice.
+            All caught up -- no pending orders to invoice.
           </div>
         ) : (
           <>
@@ -329,7 +330,7 @@ function PendingInvoicesTab({ onCountChange }: { onCountChange: (n: number) => v
                 Select all
               </label>
               <button onClick={sendToQuickBooks} disabled={sending || selected.size === 0} style={{ padding: '8px 16px', background: sending || selected.size === 0 ? '#aaa' : '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: sending || selected.size === 0 ? 'not-allowed' : 'pointer' }}>
-                {sending ? 'Sending...' : `Send ${selected.size} to QuickBooks →`}
+                {sending ? 'Sending...' : `Send ${selected.size} to QuickBooks`}
               </button>
             </div>
             <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
@@ -344,7 +345,7 @@ function PendingInvoicesTab({ onCountChange }: { onCountChange: (n: number) => v
                     </td>
                     <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '10px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.order_number}</td>
                     <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.customer}</td>
-                    <td style={{ padding: '8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items.map(it => `${it.name} ×${it.qty}`).join(', ')}</td>
+                    <td style={{ padding: '8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items.map(it => `${it.name} x${it.qty}`).join(', ')}</td>
                     <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${o.total.toFixed(2)}</td>
                     <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{o.rep}</td>
                     <td style={{ padding: '8px', color: '#888', borderBottom: '0.5px solid #f0f0ee' }}>{new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
@@ -522,7 +523,7 @@ function InventoryTab() {
                     {edit && (
                       <button onClick={() => saveEdit(f)} style={{ border: 'none', background: '#EAF3DE', borderRadius: '6px', cursor: 'pointer', color: '#3B6D11', fontSize: '11px', padding: '4px 6px' }}>✓</button>
                     )}
-                    <button onClick={() => removeFlower(f.id)} style={{ border: 'none', background: '#FCEBEB', borderRadius: '6px', cursor: 'pointer', color: '#A32D2D', fontSize: '14px', padding: '4px 6px' }}>×</button>
+                    <button onClick={() => removeFlower(f.id)} style={{ border: 'none', background: '#FCEBEB', borderRadius: '6px', cursor: 'pointer', color: '#A32D2D', fontSize: '14px', padding: '4px 6px' }}>x</button>
                   </div>
                 </div>
               )
@@ -543,7 +544,7 @@ function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
   const [feedback, setFeedback] = useState('')
 
   function saveTiers() {
-    setFeedback('✓ Tiers saved! Reps notified by email.')
+    setFeedback('✓ Tiers saved!')
     setTimeout(() => setFeedback(''), 3000)
   }
 
@@ -552,7 +553,7 @@ function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
       <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Commission Tiers</div>
       {feedback && <div style={{ marginBottom: '10px', fontSize: '12px', color: '#3B6D11', background: '#EAF3DE', padding: '8px 12px', borderRadius: '8px' }}>{feedback}</div>}
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
-        <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>Edit tiers below. Changes take effect next month. Reps are notified automatically.</div>
+        <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>Edit tiers below. Changes take effect next month.</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px', gap: '8px', padding: '0 0 6px', borderBottom: '0.5px solid #e5e5e3', marginBottom: '4px' }}>
           {['Tier name', 'Min sales ($)', 'Max sales ($)', 'Rate (%)'].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
         </div>
@@ -570,7 +571,7 @@ function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
       </div>
 
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Commission owed by rep — this month</div>
+        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Commission owed by rep -- this month</div>
         <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
           <thead><tr>{['Rep', 'Revenue', 'Tier', 'Commission'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
           <tbody>
