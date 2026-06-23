@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
 
 type LeaderboardRep = { id: string; name: string; revenue: number; orders: number; rate: number; commission: number }
 type RecentOrder = { time: string; rep: string; customer: string; total: string; status: string; carrier: string }
@@ -94,14 +95,9 @@ function OverviewTab({ leaderboard, recentOrders, loading }: { leaderboard: Lead
           </div>
         ))}
       </div>
-
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
         <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Rep performance -- this month</div>
-        {loading ? (
-          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
-        ) : leaderboard.length === 0 ? (
-          <div style={{ fontSize: '12px', color: '#888' }}>No reps found yet.</div>
-        ) : leaderboard.map((r, i) => {
+        {loading ? <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div> : leaderboard.length === 0 ? <div style={{ fontSize: '12px', color: '#888' }}>No reps found yet.</div> : leaderboard.map((r, i) => {
           const goal = 55000
           const pct = Math.round(r.revenue / goal * 100)
           const color = pct >= 80 ? '#3B6D11' : pct >= 60 ? '#185FA5' : '#854F0B'
@@ -124,16 +120,11 @@ function OverviewTab({ leaderboard, recentOrders, loading }: { leaderboard: Lead
           )
         })}
       </div>
-
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
         <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Live sales feed -- recent orders</div>
-        {recentOrders.length === 0 ? (
-          <div style={{ fontSize: '12px', color: '#888', padding: '1rem 0' }}>No orders yet.</div>
-        ) : (
+        {recentOrders.length === 0 ? <div style={{ fontSize: '12px', color: '#888', padding: '1rem 0' }}>No orders yet.</div> : (
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>{['Time', 'Rep', 'Customer', 'Carrier', 'Total', 'Status'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
-            </thead>
+            <thead><tr>{['Time', 'Rep', 'Customer', 'Carrier', 'Total', 'Status'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
             <tbody>
               {recentOrders.map((s, i) => (
                 <tr key={i}>
@@ -142,9 +133,7 @@ function OverviewTab({ leaderboard, recentOrders, loading }: { leaderboard: Lead
                   <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{s.customer}</td>
                   <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{s.carrier}</td>
                   <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{s.total}</td>
-                  <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                    <span style={{ background: '#EAF3DE', color: '#3B6D11', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{s.status}</span>
-                  </td>
+                  <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}><span style={{ background: '#EAF3DE', color: '#3B6D11', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{s.status}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -174,13 +163,9 @@ function RepsTab({ leaderboard, loading }: { leaderboard: LeaderboardRep[]; load
         ))}
       </div>
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-        {loading ? (
-          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
-        ) : (
+        {loading ? <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div> : (
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>{['Rep', 'Revenue', 'Orders', 'Tier', 'Commission'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
-            </thead>
+            <thead><tr>{['Rep', 'Revenue', 'Orders', 'Tier', 'Commission'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
             <tbody>
               {leaderboard.map((r, i) => {
                 const c = colors[i % colors.length]
@@ -195,9 +180,7 @@ function RepsTab({ leaderboard, loading }: { leaderboard: LeaderboardRep[]; load
                     </td>
                     <td style={{ padding: '10px 8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${r.revenue.toLocaleString()}</td>
                     <td style={{ padding: '10px 8px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{r.orders}</td>
-                    <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                      <span style={{ background: '#E6F1FB', color: '#185FA5', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{r.rate}%</span>
-                    </td>
+                    <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}><span style={{ background: '#E6F1FB', color: '#185FA5', padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{r.rate}%</span></td>
                     <td style={{ padding: '10px 8px', color: '#3B6D11', fontWeight: '500', borderBottom: '0.5px solid #f0f0ee' }}>${r.commission.toLocaleString()}</td>
                   </tr>
                 )
@@ -219,49 +202,32 @@ function PendingInvoicesTab({ onCountChange }: { onCountChange: (n: number) => v
 
   function loadPending() {
     setLoading(true)
-    fetch('/api/orders/pending')
-      .then(r => r.json())
-      .then(data => {
-        const list: PendingOrder[] = data.orders || []
-        setOrders(list)
-        setSelected(new Set(list.map(o => o.db_id)))
-        onCountChange(list.length)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    fetch('/api/orders/pending').then(r => r.json()).then(data => {
+      const list: PendingOrder[] = data.orders || []
+      setOrders(list)
+      setSelected(new Set(list.map(o => o.db_id)))
+      onCountChange(list.length)
+      setLoading(false)
+    }).catch(() => setLoading(false))
   }
 
   useEffect(() => { loadPending() }, [])
 
   function toggle(id: number) {
-    setSelected(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    setSelected(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
   }
 
   function toggleAll() {
-    if (selected.size === orders.length) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(orders.map(o => o.db_id)))
-    }
+    if (selected.size === orders.length) setSelected(new Set())
+    else setSelected(new Set(orders.map(o => o.db_id)))
   }
 
   async function removeOrder(id: number) {
-    if (!confirm('Remove this order completely? Use this if the customer cancelled and it should not be invoiced or counted in any reports.')) return
+    if (!confirm('Remove this order completely?')) return
     try {
-      await fetch('/api/orders/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      })
+      await fetch('/api/orders/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
       loadPending()
-    } catch {
-      setFeedback('Could not remove order.')
-    }
+    } catch { setFeedback('Could not remove order.') }
   }
 
   async function sendToQuickBooks() {
@@ -269,11 +235,7 @@ function PendingInvoicesTab({ onCountChange }: { onCountChange: (n: number) => v
     setSending(true)
     setFeedback('Sending to QuickBooks...')
     try {
-      const res = await fetch('/api/orders/send-to-quickbooks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_ids: Array.from(selected) }),
-      })
+      const res = await fetch('/api/orders/send-to-quickbooks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order_ids: Array.from(selected) }) })
       const data = await res.json()
       if (data.success) {
         let msg = `✓ ${data.invoiced} invoice${data.invoiced !== 1 ? 's' : ''} sent to QuickBooks!`
@@ -283,9 +245,7 @@ function PendingInvoicesTab({ onCountChange }: { onCountChange: (n: number) => v
       } else {
         setFeedback('Could not send: ' + data.error)
       }
-    } catch {
-      setFeedback('Could not send to QuickBooks.')
-    }
+    } catch { setFeedback('Could not send to QuickBooks.') }
     setSending(false)
     setTimeout(() => setFeedback(''), 8000)
   }
@@ -295,29 +255,18 @@ function PendingInvoicesTab({ onCountChange }: { onCountChange: (n: number) => v
   return (
     <div>
       <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Pending Invoices</div>
-      <div style={{ fontSize: '12px', color: '#888', marginBottom: '1rem' }}>
-        New orders land here first. Review them, remove anything that got cancelled, then send the rest to QuickBooks in one batch.
-      </div>
-
+      <div style={{ fontSize: '12px', color: '#888', marginBottom: '1rem' }}>New orders land here first. Review them, remove anything cancelled, then send to QuickBooks.</div>
       {feedback && <div style={{ marginBottom: '10px', fontSize: '12px', color: feedback.startsWith('✓') ? '#3B6D11' : '#A32D2D', background: feedback.startsWith('✓') ? '#EAF3DE' : '#FCEBEB', padding: '8px 12px', borderRadius: '8px' }}>{feedback}</div>}
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
-        {[
-          { label: 'Orders pending', value: orders.length.toString() },
-          { label: 'Selected to send', value: selected.size.toString() },
-          { label: 'Selected total', value: `$${selectedTotal.toFixed(2)}` },
-        ].map(m => (
+        {[{ label: 'Orders pending', value: orders.length.toString() }, { label: 'Selected to send', value: selected.size.toString() }, { label: 'Selected total', value: `$${selectedTotal.toFixed(2)}` }].map(m => (
           <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
             <div style={{ fontSize: '20px', fontWeight: '600', color: '#111' }}>{m.value}</div>
           </div>
         ))}
       </div>
-
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-        {loading ? (
-          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
-        ) : orders.length === 0 ? (
+        {loading ? <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div> : orders.length === 0 ? (
           <div style={{ fontSize: '12px', color: '#888', textAlign: 'center', padding: '2rem 0' }}>
             <div style={{ fontSize: '28px', marginBottom: '8px' }}>✓</div>
             All caught up -- no pending orders to invoice.
@@ -334,24 +283,18 @@ function PendingInvoicesTab({ onCountChange }: { onCountChange: (n: number) => v
               </button>
             </div>
             <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>{['', 'Order #', 'Customer', 'Items', 'Total', 'Rep', 'Date', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
-              </thead>
+              <thead><tr>{['', 'Order #', 'Customer', 'Items', 'Total', 'Rep', 'Date', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
               <tbody>
                 {orders.map(o => (
                   <tr key={o.db_id}>
-                    <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                      <input type="checkbox" checked={selected.has(o.db_id)} onChange={() => toggle(o.db_id)} />
-                    </td>
+                    <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}><input type="checkbox" checked={selected.has(o.db_id)} onChange={() => toggle(o.db_id)} /></td>
                     <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '10px', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.order_number}</td>
                     <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.customer}</td>
                     <td style={{ padding: '8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items.map(it => `${it.name} x${it.qty}`).join(', ')}</td>
                     <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${o.total.toFixed(2)}</td>
                     <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{o.rep}</td>
                     <td style={{ padding: '8px', color: '#888', borderBottom: '0.5px solid #f0f0ee' }}>{new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
-                    <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}>
-                      <button onClick={() => removeOrder(o.db_id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button>
-                    </td>
+                    <td style={{ padding: '8px', borderBottom: '0.5px solid #f0f0ee' }}><button onClick={() => removeOrder(o.db_id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -373,13 +316,7 @@ function InventoryTab() {
 
   function loadFlowers() {
     setLoading(true)
-    fetch('/api/flowers/list')
-      .then(r => r.json())
-      .then(data => {
-        setFlowers(data.flowers || [])
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    fetch('/api/flowers/list').then(r => r.json()).then(data => { setFlowers(data.flowers || []); setLoading(false) }).catch(() => setLoading(false))
   }
 
   useEffect(() => { loadFlowers() }, [])
@@ -388,87 +325,32 @@ function InventoryTab() {
     if (!newFlower.name || !newFlower.variety) { setFeedback('Please fill in name and variety.'); return }
     const colors2 = ['#D4537E', '#EF9F27', '#AFA9EC', '#9FE1CB', '#F0997B', '#ED93B1']
     try {
-      const res = await fetch('/api/flowers/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newFlower.name,
-          variety: newFlower.variety,
-          color: colors2[flowers.length % colors2.length],
-          unit: newFlower.unit,
-          stems_per_unit: 10,
-          morning_qty: newFlower.morning_qty,
-          current_stock: newFlower.morning_qty,
-          price: newFlower.price,
-        }),
-      })
+      const res = await fetch('/api/flowers/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newFlower.name, variety: newFlower.variety, color: colors2[flowers.length % colors2.length], unit: newFlower.unit, stems_per_unit: 10, morning_qty: newFlower.morning_qty, current_stock: newFlower.morning_qty, price: newFlower.price }) })
       const data = await res.json()
-      if (data.success) {
-        setFeedback(`✓ ${newFlower.name} added! All reps can now see it.`)
-        setNewFlower({ name: '', variety: '', unit: 'bucket', morning_qty: 20, price: 0 })
-        setShowAdd(false)
-        loadFlowers()
-      } else {
-        setFeedback('Could not add flower: ' + data.error)
-      }
-    } catch {
-      setFeedback('Could not add flower.')
-    }
+      if (data.success) { setFeedback(`✓ ${newFlower.name} added!`); setNewFlower({ name: '', variety: '', unit: 'bucket', morning_qty: 20, price: 0 }); setShowAdd(false); loadFlowers() }
+      else setFeedback('Could not add flower: ' + data.error)
+    } catch { setFeedback('Could not add flower.') }
     setTimeout(() => setFeedback(''), 3000)
   }
 
   async function removeFlower(id: number) {
-    if (!confirm('Remove this flower? Reps will no longer see it.')) return
-    try {
-      await fetch('/api/flowers/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      })
-      setFeedback('✓ Flower removed.')
-      loadFlowers()
-    } catch {
-      setFeedback('Could not remove flower.')
-    }
+    if (!confirm('Remove this flower?')) return
+    try { await fetch('/api/flowers/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); setFeedback('✓ Flower removed.'); loadFlowers() }
+    catch { setFeedback('Could not remove flower.') }
     setTimeout(() => setFeedback(''), 3000)
   }
 
   function handleEditChange(id: number, field: 'morning_qty' | 'price', value: number, current: Flower) {
-    setEdits(prev => ({
-      ...prev,
-      [id]: {
-        morning_qty: field === 'morning_qty' ? value : (prev[id]?.morning_qty ?? current.morning_qty),
-        price: field === 'price' ? value : (prev[id]?.price ?? current.price),
-      },
-    }))
+    setEdits(prev => ({ ...prev, [id]: { morning_qty: field === 'morning_qty' ? value : (prev[id]?.morning_qty ?? current.morning_qty), price: field === 'price' ? value : (prev[id]?.price ?? current.price) } }))
   }
 
   async function saveEdit(f: Flower) {
     const edit = edits[f.id]
     if (!edit) return
     try {
-      await fetch('/api/flowers/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: f.id,
-          name: f.name,
-          variety: f.variety,
-          color: f.color,
-          unit: f.unit,
-          stems_per_unit: f.stems_per_unit,
-          morning_qty: edit.morning_qty,
-          current_stock: f.current_stock,
-          price: edit.price,
-          active: true,
-        }),
-      })
-      setFeedback(`✓ ${f.name} updated.`)
-      loadFlowers()
-      setEdits(prev => { const u = { ...prev }; delete u[f.id]; return u })
-    } catch {
-      setFeedback('Could not save changes.')
-    }
+      await fetch('/api/flowers/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: f.id, name: f.name, variety: f.variety, color: f.color, unit: f.unit, stems_per_unit: f.stems_per_unit, morning_qty: edit.morning_qty, current_stock: f.current_stock, price: edit.price, active: true }) })
+      setFeedback(`✓ ${f.name} updated.`); loadFlowers(); setEdits(prev => { const u = { ...prev }; delete u[f.id]; return u })
+    } catch { setFeedback('Could not save changes.') }
     setTimeout(() => setFeedback(''), 3000)
   }
 
@@ -497,13 +379,11 @@ function InventoryTab() {
             </div>
           </div>
         )}
-        {loading ? (
-          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
-        ) : flowers.length === 0 ? (
+        {loading ? <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div> : flowers.length === 0 ? (
           <div style={{ fontSize: '12px', color: '#888', textAlign: 'center', padding: '1.5rem 0' }}>No flowers yet. Click &quot;+ Add flower&quot; to add your first one.</div>
         ) : (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 80px 30px', gap: '6px', padding: '0 0 6px', borderBottom: '0.5px solid #e5e5e3', marginBottom: '4px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 80px 60px', gap: '6px', padding: '0 0 6px', borderBottom: '0.5px solid #e5e5e3', marginBottom: '4px' }}>
               {['Flower', 'Morning qty', 'In stock', 'Price', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
             </div>
             {flowers.map(f => {
@@ -511,7 +391,7 @@ function InventoryTab() {
               const stockColor = f.current_stock === 0 ? '#A32D2D' : pct <= 20 ? '#854F0B' : '#3B6D11'
               const edit = edits[f.id]
               return (
-                <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 80px 30px', gap: '6px', alignItems: 'center', padding: '8px 0', borderBottom: '0.5px solid #f0f0ee' }}>
+                <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 80px 60px', gap: '6px', alignItems: 'center', padding: '8px 0', borderBottom: '0.5px solid #f0f0ee' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.color, flexShrink: 0 }} />
                     <div><div style={{ fontSize: '12px', fontWeight: '500', color: '#111' }}>{f.name}</div><div style={{ fontSize: '10px', color: '#888' }}>{f.variety} · {f.unit}</div></div>
@@ -520,10 +400,8 @@ function InventoryTab() {
                   <div style={{ fontSize: '12px', fontWeight: '500', color: stockColor }}>{f.current_stock} left</div>
                   <input type="number" value={edit?.price ?? f.price} onChange={e => handleEditChange(f.id, 'price', parseFloat(e.target.value) || 0, f)} style={{ padding: '5px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
                   <div style={{ display: 'flex', gap: '4px' }}>
-                    {edit && (
-                      <button onClick={() => saveEdit(f)} style={{ border: 'none', background: '#EAF3DE', borderRadius: '6px', cursor: 'pointer', color: '#3B6D11', fontSize: '11px', padding: '4px 6px' }}>✓</button>
-                    )}
-                    <button onClick={() => removeFlower(f.id)} style={{ border: 'none', background: '#FCEBEB', borderRadius: '6px', cursor: 'pointer', color: '#A32D2D', fontSize: '14px', padding: '4px 6px' }}>x</button>
+                    {edit && <button onClick={() => saveEdit(f)} style={{ border: 'none', background: '#EAF3DE', borderRadius: '6px', cursor: 'pointer', color: '#3B6D11', fontSize: '11px', padding: '4px 6px' }}>Save</button>}
+                    <button onClick={() => removeFlower(f.id)} style={{ border: 'none', background: '#FCEBEB', borderRadius: '6px', cursor: 'pointer', color: '#A32D2D', fontSize: '11px', padding: '4px 6px' }}>Del</button>
                   </div>
                 </div>
               )
@@ -543,10 +421,7 @@ function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
   ])
   const [feedback, setFeedback] = useState('')
 
-  function saveTiers() {
-    setFeedback('✓ Tiers saved!')
-    setTimeout(() => setFeedback(''), 3000)
-  }
+  function saveTiers() { setFeedback('✓ Tiers saved!'); setTimeout(() => setFeedback(''), 3000) }
 
   return (
     <div>
@@ -565,13 +440,10 @@ function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
             <input type="number" value={t.rate} onChange={e => { const u = [...tiers]; u[i] = { ...u[i], rate: parseInt(e.target.value) || 0 }; setTiers(u) }} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
           </div>
         ))}
-        <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
-          <button onClick={saveTiers} style={{ padding: '8px 16px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Save changes</button>
-        </div>
+        <button onClick={saveTiers} style={{ marginTop: '10px', padding: '8px 16px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Save changes</button>
       </div>
-
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Commission owed by rep -- this month</div>
+        <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Commission owed -- this month</div>
         <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
           <thead><tr>{['Rep', 'Revenue', 'Tier', 'Commission'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
           <tbody>
@@ -593,7 +465,7 @@ function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
               )
             })}
             <tr>
-              <td colSpan={1} style={{ padding: '9px 8px', fontWeight: '500', color: '#111' }}>Total owed</td>
+              <td style={{ padding: '9px 8px', fontWeight: '500', color: '#111' }}>Total owed</td>
               <td colSpan={3} style={{ padding: '9px 8px', fontWeight: '600', color: '#3B6D11', fontSize: '14px' }}>${leaderboard.reduce((s, r) => s + r.commission, 0).toLocaleString()}</td>
             </tr>
           </tbody>
@@ -613,13 +485,7 @@ function UsersTab() {
 
   function loadUsers() {
     setLoading(true)
-    fetch('/api/users/list')
-      .then(r => r.json())
-      .then(data => {
-        setUsers(data.users || [])
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    fetch('/api/users/list').then(r => r.json()).then(data => { setUsers(data.users || []); setLoading(false) }).catch(() => setLoading(false))
   }
 
   useEffect(() => { loadUsers() }, [])
@@ -627,59 +493,33 @@ function UsersTab() {
   async function inviteUser() {
     if (!newUser.name || !newUser.email) { setFeedback('Please fill in name and email.'); return }
     try {
-      const res = await fetch('/api/users/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser),
-      })
+      const res = await fetch('/api/users/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newUser) })
       const data = await res.json()
-      if (data.success) {
-        setTempPasswordShown({ email: newUser.email, password: data.tempPassword })
-        setNewUser({ name: '', email: '', role: 'rep' })
-        setShowInvite(false)
-        loadUsers()
-      } else {
-        setFeedback('Could not create user: ' + data.error)
-        setTimeout(() => setFeedback(''), 4000)
-      }
-    } catch {
-      setFeedback('Could not create user.')
-      setTimeout(() => setFeedback(''), 4000)
-    }
+      if (data.success) { setTempPasswordShown({ email: newUser.email, password: data.tempPassword }); setNewUser({ name: '', email: '', role: 'rep' }); setShowInvite(false); loadUsers() }
+      else { setFeedback('Could not create user: ' + data.error); setTimeout(() => setFeedback(''), 4000) }
+    } catch { setFeedback('Could not create user.'); setTimeout(() => setFeedback(''), 4000) }
   }
 
   async function removeUser(id: string) {
-    if (!confirm('Remove this user? They will lose access immediately.')) return
-    try {
-      await fetch('/api/users/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      })
-      setFeedback('✓ User removed.')
-      loadUsers()
-    } catch {
-      setFeedback('Could not remove user.')
-    }
+    if (!confirm('Remove this user?')) return
+    try { await fetch('/api/users/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); setFeedback('✓ User removed.'); loadUsers() }
+    catch { setFeedback('Could not remove user.') }
     setTimeout(() => setFeedback(''), 3000)
   }
 
   return (
     <div>
       <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>User Access & Roles</div>
-
       {tempPasswordShown && (
         <div style={{ marginBottom: '10px', background: '#E6F1FB', border: '0.5px solid #185FA5', borderRadius: '8px', padding: '12px 14px' }}>
-          <div style={{ fontSize: '12px', fontWeight: '500', color: '#0C447C', marginBottom: '6px' }}>✓ User created! Share these login details with them:</div>
+          <div style={{ fontSize: '12px', fontWeight: '500', color: '#0C447C', marginBottom: '6px' }}>✓ User created! Share these login details:</div>
           <div style={{ fontSize: '12px', color: '#111', fontFamily: 'monospace' }}>Email: {tempPasswordShown.email}</div>
           <div style={{ fontSize: '12px', color: '#111', fontFamily: 'monospace', marginBottom: '8px' }}>Temporary password: {tempPasswordShown.password}</div>
           <button onClick={() => setTempPasswordShown(null)} style={{ padding: '5px 10px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>Got it, dismiss</button>
         </div>
       )}
-
       {feedback && <div style={{ marginBottom: '10px', fontSize: '12px', color: feedback.startsWith('✓') ? '#3B6D11' : '#A32D2D', background: feedback.startsWith('✓') ? '#EAF3DE' : '#FCEBEB', padding: '8px 12px', borderRadius: '8px' }}>{feedback}</div>}
-
-      <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
+      <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ fontSize: '12px', color: '#888' }}>Control who can log in and what they can do.</div>
           <button onClick={() => setShowInvite(!showInvite)} style={{ padding: '7px 14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>+ Invite user</button>
@@ -689,7 +529,7 @@ function UsersTab() {
             <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginBottom: '10px' }}>Invite new user</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: '8px', marginBottom: '10px' }}>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Full name</label><input value={newUser.name} onChange={e => setNewUser(p => ({ ...p, name: e.target.value }))} placeholder="e.g. John Smith" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
-              <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Email</label><input value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} placeholder="email@newburyfloral.com" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
+              <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Email</label><input value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} placeholder="email@example.com" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Role</label><select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }}><option value='rep'>Sales Rep</option><option value='manager'>Manager</option></select></div>
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
@@ -698,9 +538,7 @@ function UsersTab() {
             </div>
           </div>
         )}
-        {loading ? (
-          <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div>
-        ) : (
+        {loading ? <div style={{ fontSize: '12px', color: '#888' }}>Loading...</div> : (
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr>{['Name', 'Email', 'Role', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
             <tbody>
@@ -726,31 +564,16 @@ function SettingsTab() {
   const [feedback, setFeedback] = useState('')
 
   useEffect(() => {
-    fetch('/api/settings/get')
-      .then(r => r.json())
-      .then(data => {
-        if (data.settings) setSettings(data.settings)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    fetch('/api/settings/get').then(r => r.json()).then(data => { if (data.settings) setSettings(data.settings); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   async function save() {
     try {
-      const res = await fetch('/api/settings/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      })
+      const res = await fetch('/api/settings/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) })
       const data = await res.json()
-      if (data.success) {
-        setFeedback('✓ Company info updated! This applies to all labels immediately.')
-      } else {
-        setFeedback('Could not save: ' + data.error)
-      }
-    } catch {
-      setFeedback('Could not save changes.')
-    }
+      if (data.success) setFeedback('✓ Company info updated!')
+      else setFeedback('Could not save: ' + data.error)
+    } catch { setFeedback('Could not save changes.') }
     setTimeout(() => setFeedback(''), 4000)
   }
 
@@ -761,37 +584,30 @@ function SettingsTab() {
       <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Company Settings</div>
       {feedback && <div style={{ marginBottom: '10px', fontSize: '12px', color: feedback.startsWith('✓') ? '#3B6D11' : '#A32D2D', background: feedback.startsWith('✓') ? '#EAF3DE' : '#FCEBEB', padding: '8px 12px', borderRadius: '8px' }}>{feedback}</div>}
       <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1.25rem', maxWidth: '500px' }}>
-        <div style={{ fontSize: '12px', color: '#888', marginBottom: '16px' }}>This information appears on every printed shipping label. Changes apply instantly.</div>
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Company name</label>
-          <input value={settings.name} onChange={e => setSettings(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
-        </div>
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Address</label>
-          <input value={settings.address} onChange={e => setSettings(p => ({ ...p, address: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
-        </div>
+        <div style={{ fontSize: '12px', color: '#888', marginBottom: '16px' }}>This information appears on every printed shipping label.</div>
+        {[
+          { label: 'Company name', key: 'name' },
+          { label: 'Address', key: 'address' },
+        ].map(f => (
+          <div key={f.key} style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>{f.label}</label>
+            <input value={settings[f.key as keyof typeof settings]} onChange={e => setSettings(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+          </div>
+        ))}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-          <div>
-            <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>City</label>
-            <input value={settings.city} onChange={e => setSettings(p => ({ ...p, city: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>State</label>
-            <input value={settings.state} onChange={e => setSettings(p => ({ ...p, state: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>ZIP</label>
-            <input value={settings.zip} onChange={e => setSettings(p => ({ ...p, zip: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
-          </div>
+          {[{ label: 'City', key: 'city' }, { label: 'State', key: 'state' }, { label: 'ZIP', key: 'zip' }].map(f => (
+            <div key={f.key}>
+              <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>{f.label}</label>
+              <input value={settings[f.key as keyof typeof settings]} onChange={e => setSettings(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+            </div>
+          ))}
         </div>
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Phone</label>
-          <input value={settings.phone} onChange={e => setSettings(p => ({ ...p, phone: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
-        </div>
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>Email</label>
-          <input value={settings.email} onChange={e => setSettings(p => ({ ...p, email: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
-        </div>
+        {[{ label: 'Phone', key: 'phone' }, { label: 'Email', key: 'email' }].map(f => (
+          <div key={f.key} style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>{f.label}</label>
+            <input value={settings[f.key as keyof typeof settings]} onChange={e => setSettings(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '13px', color: '#111' }} />
+          </div>
+        ))}
         <button onClick={save} style={{ padding: '9px 18px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Save changes</button>
       </div>
     </div>
@@ -799,6 +615,7 @@ function SettingsTab() {
 }
 
 export default function Manager() {
+  useAuth('manager')
   const [activeTab, setActiveTab] = useState('overview')
   const [leaderboard, setLeaderboard] = useState<LeaderboardRep[]>([])
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])

@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
 
 export default function Dashboard() {
+  useAuth()
   const [userName, setUserName] = useState('there')
   const [userInitials, setUserInitials] = useState('?')
   const [revenue, setRevenue] = useState<number | null>(null)
@@ -23,15 +25,9 @@ export default function Dashboard() {
           setOrderCount(data.orderCount)
           setCustomerCount(data.customers)
         })
-        .catch(() => {
-          setRevenue(0)
-          setOrderCount(0)
-          setCustomerCount(0)
-        })
+        .catch(() => { setRevenue(0); setOrderCount(0); setCustomerCount(0) })
     } else {
-      setRevenue(0)
-      setOrderCount(0)
-      setCustomerCount(0)
+      setRevenue(0); setOrderCount(0); setCustomerCount(0)
     }
   }, [])
 
@@ -51,8 +47,6 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
-
-      {/* Sidebar */}
       <div style={{ width: '200px', background: '#ffffff', borderRight: '0.5px solid #e5e5e3', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #e5e5e3' }}>
           <div style={{ fontSize: '14px', fontWeight: '500', color: '#111' }}>Newbury Floral Farms</div>
@@ -67,19 +61,14 @@ export default function Dashboard() {
         </div>
         <div style={{ padding: '4px 0' }}>
           {navItems.map(item => (
-            <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', textDecoration: 'none' }}>
-              {item.label}
-            </a>
+            <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', textDecoration: 'none' }}>{item.label}</a>
           ))}
         </div>
         <a href="/" style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', textDecoration: 'none', display: 'block' }}>Sign out</a>
       </div>
 
-      {/* Main content */}
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
         <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Good morning, {firstName} 👋</div>
-
-        {/* Metrics */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
           {[
             { label: 'Revenue (this month)', value: revenue === null ? '...' : `$${revenue.toLocaleString()}`, sub: `Goal: $${revenueGoal.toLocaleString()}`, subColor: '#666' },
@@ -94,11 +83,9 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-          {/* Goal progress */}
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Goal progress — this month</div>
+            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Goal progress -- this month</div>
             {[
               { label: 'Revenue', val: revenue || 0, max: revenueGoal, color: '#185FA5' },
               { label: 'Orders', val: orderCount || 0, max: orderGoal, color: '#3B6D11' },
@@ -118,33 +105,27 @@ export default function Dashboard() {
             })}
             {revenue !== null && revenue < revenueGoal && (
               <div style={{ background: '#E6F1FB', borderRadius: '8px', padding: '8px 10px', fontSize: '11px', color: '#0C447C', marginTop: '4px' }}>
-                ⚡ You need <strong>${(revenueGoal - revenue).toLocaleString()}</strong> more to hit your monthly goal!
+                You need <strong>${(revenueGoal - revenue).toLocaleString()}</strong> more to hit your monthly goal!
               </div>
             )}
             {revenue !== null && revenue >= revenueGoal && (
               <div style={{ background: '#EAF3DE', borderRadius: '8px', padding: '8px 10px', fontSize: '11px', color: '#3B6D11', marginTop: '4px' }}>
-                🎉 You hit your monthly revenue goal!
+                You hit your monthly revenue goal!
               </div>
             )}
           </div>
-
-          {/* Quick actions */}
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
             <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Quick actions</div>
             {[
-              { label: '🌸 Add new order', href: '/orders', color: '#185FA5', bg: '#E6F1FB' },
-              { label: '👥 View my customers', href: '/customers', color: '#3B6D11', bg: '#EAF3DE' },
-              { label: '📋 Create a quote', href: '/quotes', color: '#854F0B', bg: '#FAEEDA' },
-              { label: '💰 My commission', href: '/commission', color: '#3C3489', bg: '#EEEDFE' },
+              { label: 'Add new order', href: '/orders', color: '#185FA5', bg: '#E6F1FB' },
+              { label: 'View my customers', href: '/customers', color: '#3B6D11', bg: '#EAF3DE' },
+              { label: 'Create a quote', href: '/quotes', color: '#854F0B', bg: '#FAEEDA' },
+              { label: 'My commission', href: '/commission', color: '#3C3489', bg: '#EEEDFE' },
             ].map(a => (
-              <a key={a.label} href={a.href} style={{ display: 'block', padding: '10px 12px', borderRadius: '8px', marginBottom: '6px', background: a.bg, color: a.color, textDecoration: 'none', fontSize: '12px', fontWeight: '500' }}>
-                {a.label}
-              </a>
+              <a key={a.label} href={a.href} style={{ display: 'block', padding: '10px 12px', borderRadius: '8px', marginBottom: '6px', background: a.bg, color: a.color, textDecoration: 'none', fontSize: '12px', fontWeight: '500' }}>{a.label}</a>
             ))}
           </div>
         </div>
-
-        {/* Recent orders */}
         <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
           <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>This month at a glance</div>
           {revenue === 0 && orderCount === 0 ? (
@@ -152,7 +133,7 @@ export default function Dashboard() {
               <div style={{ fontSize: '28px', marginBottom: '8px' }}>🌸</div>
               <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginBottom: '4px' }}>No orders yet this month</div>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>Start adding orders to see your stats here.</div>
-              <a href="/orders" style={{ padding: '8px 16px', background: '#185FA5', color: 'white', borderRadius: '8px', fontSize: '12px', textDecoration: 'none' }}>Add first order →</a>
+              <a href="/orders" style={{ padding: '8px 16px', background: '#185FA5', color: 'white', borderRadius: '8px', fontSize: '12px', textDecoration: 'none' }}>Add first order</a>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
@@ -169,7 +150,6 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   )
