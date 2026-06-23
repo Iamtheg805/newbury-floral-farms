@@ -10,13 +10,16 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const { data: order, error: findError } = await supabase
+  const { data: orders } = await supabase
     .from('orders')
     .select('id, order_number, customer_name')
     .eq('order_number', order_number)
-    .single()
+    .order('id', { ascending: true })
+    .limit(1)
 
-  if (findError || !order) {
+  const order = orders?.[0]
+
+  if (!order) {
     return NextResponse.json({ error: `No order found with number ${order_number}` }, { status: 404 })
   }
 
@@ -25,7 +28,7 @@ export async function POST(request: NextRequest) {
   if (stage === 'out_for_delivery') update.shipped_at = new Date().toISOString()
   if (stage === 'delivered') update.delivered_at = new Date().toISOString()
 
-  const { error } = await supabase.from('orders').update(update).eq('id', order.id)
+  const { error } = await supabase.from('orders').update(update).eq('order_number', order_number)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
