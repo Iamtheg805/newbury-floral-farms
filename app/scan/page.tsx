@@ -21,7 +21,8 @@ const STAGES = [
 type ResultEntry = { order_number: string; customer?: string; success: boolean; message: string }
 
 export default function ScanStation() {
-  const [userName, setUserName] = useState('there')
+  const [userName, setUserName] = useState('')
+  const [userRole, setUserRole] = useState('')
   const [stage, setStage] = useState('packed')
   const [scanning, setScanning] = useState(false)
   const [libraryLoaded, setLibraryLoaded] = useState(false)
@@ -30,13 +31,21 @@ export default function ScanStation() {
   const [submitting, setSubmitting] = useState(false)
   const [cameraError, setCameraError] = useState('')
   const [justScanned, setJustScanned] = useState('')
+  const [authChecked, setAuthChecked] = useState(false)
   const readerRef = useRef<InstanceType<Window['ZXing']['BrowserMultiFormatReader']> | null>(null)
   const lastScanRef = useRef<{ code: string; time: number }>({ code: '', time: 0 })
   const queueRef = useRef<string[]>([])
 
   useEffect(() => {
-    const name = localStorage.getItem('user_name') || 'there'
+    const name = localStorage.getItem('user_name') || ''
+    const role = localStorage.getItem('user_role') || ''
+    if (!name || !role) {
+      window.location.href = '/'
+      return
+    }
     setUserName(name)
+    setUserRole(role)
+    setAuthChecked(true)
 
     const script = document.createElement('script')
     script.src = 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'
@@ -57,14 +66,14 @@ export default function ScanStation() {
     lastScanRef.current = { code, time: now }
 
     if (queueRef.current.includes(code)) {
-      setJustScanned(`${code} — already in list`)
+      setJustScanned(`${code} already in list`)
       setTimeout(() => setJustScanned(''), 1500)
       return
     }
 
     queueRef.current = [...queueRef.current, code]
     setQueue([...queueRef.current])
-    setJustScanned(`✓ Added ${code}`)
+    setJustScanned(`Added ${code}`)
     setTimeout(() => setJustScanned(''), 1500)
   }
 
@@ -75,7 +84,7 @@ export default function ScanStation() {
 
   function startScanning() {
     if (!libraryLoaded || !window.ZXing) {
-      setCameraError('Scanner library still loading — try again in a second.')
+      setCameraError('Scanner library still loading, try again in a second.')
       return
     }
     setCameraError('')
@@ -83,9 +92,7 @@ export default function ScanStation() {
     const reader = new window.ZXing.BrowserMultiFormatReader()
     readerRef.current = reader
     reader.decodeFromVideoDevice(undefined, 'scan-video', (result) => {
-      if (result) {
-        handleDetected(result.getText())
-      }
+      if (result) handleDetected(result.getText())
     }).catch(() => {
       setCameraError('Could not access camera. Check that you allowed camera permission for this site.')
       setScanning(false)
@@ -113,12 +120,15 @@ export default function ScanStation() {
       queueRef.current = []
       setQueue([])
     } catch {
-      setResults([{ order_number: 'all', success: false, message: 'Network error — please try again' }])
+      setResults([{ order_number: 'all', success: false, message: 'Network error, please try again' }])
     }
     setSubmitting(false)
   }
 
+  if (!authChecked) return null
+
   const stageMeta = STAGES.find(s => s.key === stage)!
+  const backHref = userRole === 'manager' ? '/manager' : '/dashboard'
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9f9f8', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
@@ -130,11 +140,11 @@ export default function ScanStation() {
           <img src="/logo.png" alt="logo" style={{ height: '28px', width: 'auto' }} />
           <div style={{ fontSize: '13px', fontWeight: '500', color: '#111' }}>Scan Station</div>
         </div>
-        <a href="/orders" style={{ fontSize: '12px', color: '#185FA5', textDecoration: 'none' }}>← Back to orders</a>
+        <a href={backHref} style={{ fontSize: '12px', color: '#185FA5', textDecoration: 'none' }}>Back to {userRole === 'manager' ? 'Manager' : 'Dashboard'}</a>
       </div>
 
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1.25rem 1rem' }}>
-        <div style={{ fontSize: '12px', color: '#888', marginBottom: '1rem' }}>Hi {userName} — pick a stage, scan all your packages, then submit them together.</div>
+        <div style={{ fontSize: '12px', color: '#888', marginBottom: '1rem' }}>Hi {userName} -- pick a stage, scan all your packages, then submit them together.</div>
 
         {/* Stage selector */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '1rem' }}>
@@ -161,7 +171,7 @@ export default function ScanStation() {
         <div style={{ background: 'white', borderRadius: '12px', border: '0.5px solid #e5e5e3', padding: '1rem', marginBottom: '1rem' }}>
           {!scanning ? (
             <button onClick={startScanning} style={{ width: '100%', padding: '14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-              📷 Start scanning
+              Start scanning
             </button>
           ) : (
             <>
@@ -200,7 +210,7 @@ export default function ScanStation() {
                 {queue.map(code => (
                   <div key={code} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f9f9f8', border: '0.5px solid #e5e5e3', borderRadius: '99px', padding: '5px 10px' }}>
                     <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#111' }}>{code}</span>
-                    <button onClick={() => removeFromQueue(code)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '13px', color: '#888' }}>×</button>
+                    <button onClick={() => removeFromQueue(code)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '13px', color: '#888' }}>x</button>
                   </div>
                 ))}
               </div>
@@ -209,7 +219,7 @@ export default function ScanStation() {
                 disabled={submitting}
                 style={{ width: '100%', padding: '12px', background: submitting ? '#aaa' : stageMeta.color, color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer' }}
               >
-                {submitting ? 'Submitting...' : `Submit ${queue.length} as "${stageMeta.label}" →`}
+                {submitting ? 'Submitting...' : `Submit ${queue.length} as "${stageMeta.label}"`}
               </button>
             </>
           )}
@@ -223,7 +233,7 @@ export default function ScanStation() {
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < results.length - 1 ? '0.5px solid #f0f0ee' : 'none' }}>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: '500', color: '#111', fontFamily: 'monospace' }}>{r.order_number}</div>
-                  <div style={{ fontSize: '11px', color: r.success ? '#3B6D11' : '#A32D2D' }}>{r.message}{r.customer ? ` · ${r.customer}` : ''}</div>
+                  <div style={{ fontSize: '11px', color: r.success ? '#3B6D11' : '#A32D2D' }}>{r.message}{r.customer ? ` -- ${r.customer}` : ''}</div>
                 </div>
                 <div style={{ fontSize: '14px' }}>{r.success ? '✅' : '⚠️'}</div>
               </div>
