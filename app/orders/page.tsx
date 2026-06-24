@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useAuth } from '../useAuth'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', active: false },
@@ -19,7 +20,7 @@ type CustomerOption = { id: number; name: string; phone: string; adress: string;
 type FlowerOption = { id: number; name: string; variety: string; unit: string; price: number }
 type CompanySettings = { name: string; address: string; city: string; state: string; zip: string; phone: string; email: string }
 
-let orderCounter = 20414
+let orderCounter = 0
 const CC_FEE_RATE = 0.0299
 
 const CODE128_TABLE = [
@@ -63,6 +64,7 @@ function flowerDisplayName(f: FlowerOption) {
 }
 
 export default function Orders() {
+  const authReady = useAuth()
   const [step, setStep] = useState<'add' | 'review' | 'print'>('add')
   const [batch, setBatch] = useState<Order[]>([])
   const [customers, setCustomers] = useState<CustomerOption[]>([])
@@ -104,6 +106,13 @@ export default function Orders() {
     setUserInitials(initials)
     const repId = localStorage.getItem('user_id') || ''
     fetch('/api/settings/get').then(r => r.json()).then(data => { if (data.settings) setSettings(data.settings) }).catch(() => {})
+    fetch('/api/orders/recent').then(r => r.json()).then(data => {
+      if (data.orders && data.orders.length > 0) {
+        const latest = data.orders[0].order_number
+        const num = parseInt(latest.replace('ORD-', ''))
+        if (!isNaN(num)) orderCounter = num
+      } else { orderCounter = 20414 }
+    }).catch(() => { orderCounter = 20414 })
     fetch('/api/flowers/list').then(r => r.json()).then(data => {
       const opts: FlowerOption[] = (data.flowers || []).map((f: FlowerOption) => ({ id: f.id, name: f.name, variety: f.variety, unit: f.unit, price: f.price }))
       setFlowerOptions(opts)
@@ -116,6 +125,8 @@ export default function Orders() {
     fetch(`/api/customers/list?rep_id=${repId}`).then(r => r.json()).then(data => setCustomers(data.customers || [])).catch(() => setCustomers([]))
     loadTodaysOrders(repId)
   }, [step])
+
+  if (!authReady) return null
 
   function handleCustomerChange(name: string) {
     setCustomer(name)
@@ -134,7 +145,6 @@ export default function Orders() {
     const updatedItems = [...items]
     const updatedQty = [...qtyInputs]
     const updatedPrice = [...priceInputs]
-
     if (field === 'flowerId') {
       const flower = flowerOptions.find(f => String(f.id) === value)
       if (!flower) return
@@ -148,10 +158,8 @@ export default function Orders() {
     } else if (field === 'price') {
       updatedPrice[index] = value
       const price = value === '' ? 0 : parseFloat(value) || 0
-      const qty = updatedItems[index].qty
-      updatedItems[index] = { ...updatedItems[index], price, sub: price * qty }
+      updatedItems[index] = { ...updatedItems[index], price, sub: price * updatedItems[index].qty }
     }
-
     setItems(updatedItems)
     setQtyInputs(updatedQty)
     setPriceInputs(updatedPrice)
@@ -204,16 +212,7 @@ export default function Orders() {
         await fetch('/api/orders/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            order_number: order.id,
-            customer_name: order.customer,
-            carrier: order.carrier,
-            truck_id: order.truck,
-            total: order.total,
-            cc_fee_amount: order.ccFee,
-            rep_id: repId,
-            items: order.items.map(it => ({ name: it.name, qty: it.qty, price: it.price, sub: it.sub, unit: it.unit })),
-          }),
+          body: JSON.stringify({ order_number: order.id, customer_name: order.customer, carrier: order.carrier, truck_id: order.truck, total: order.total, cc_fee_amount: order.ccFee, rep_id: repId, items: order.items.map(it => ({ name: it.name, qty: it.qty, price: it.price, sub: it.sub, unit: it.unit })) }),
         })
       } catch (e) { console.log('Save error:', e) }
     }
@@ -222,7 +221,6 @@ export default function Orders() {
   function buildLabelHTML(labelOrders: { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: { name: string; qty: number }[] }[]) {
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const repName = localStorage.getItem('user_name') || 'Rep'
-
     const labelsHTML = labelOrders.flatMap(o => {
       const totalBoxes = o.items.length
       return o.items.map((it, boxIndex) => `
@@ -278,21 +276,7 @@ export default function Orders() {
         </div>
       `)
     }).join('')
-
-    return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>${settings.name} -- Labels</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-body { background: white; }
-@page { size: 4in 6in; margin: 0; }
-span { display: inline-block !important; }
-</style>
-</head>
-<body>${labelsHTML}</body>
-</html>`
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${settings.name} -- Labels</title><style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } body { background: white; } @page { size: 4in 6in; margin: 0; } span { display: inline-block !important; }</style></head><body>${labelsHTML}</body></html>`
   }
 
   function printLabels() {
@@ -325,7 +309,6 @@ span { display: inline-block !important; }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
-      {/* Sidebar */}
       <div style={{ width: '200px', background: '#ffffff', borderRight: '0.5px solid #e5e5e3', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #e5e5e3' }}>
           <div style={{ fontSize: '14px', fontWeight: '500', color: '#111' }}>Newbury Floral Farms</div>
@@ -346,9 +329,7 @@ span { display: inline-block !important; }
         <a href="/" style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', textDecoration: 'none', display: 'block' }}>Sign out</a>
       </div>
 
-      {/* Main */}
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
-        {/* Step indicator */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.25rem' }}>
           {(['add', 'review', 'print'] as const).map((s, i) => (
             <div key={s} style={{ display: 'flex', alignItems: 'center' }}>
@@ -361,10 +342,9 @@ span { display: inline-block !important; }
           ))}
         </div>
 
-        {/* Today's orders */}
         {step === 'add' && !loadingToday && todaysOrders.length > 0 && (
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
-            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Today&apos;s orders — reprint or remove if needed</div>
+            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Today&apos;s orders -- reprint or remove if needed</div>
             <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '10px' }}>This list resets at midnight.</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
               {todaysOrders.map(o => (
@@ -384,11 +364,9 @@ span { display: inline-block !important; }
           </div>
         )}
 
-        {/* STEP 1 */}
         {step === 'add' && (
           <div style={{ display: 'flex', gap: '12px' }}>
             <div style={{ flex: 1 }}>
-              {/* Customer */}
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Customer</div>
                 {customers.length === 0 ? (
@@ -407,16 +385,15 @@ span { display: inline-block !important; }
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
                     <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Address</label>
-                    <input value={addr} onChange={e => setAddr(e.target.value)} placeholder="Auto-filled" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                    <input value={addr} onChange={e => setAddr(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
                   </div>
                   <div>
                     <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Phone</label>
-                    <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Auto-filled" style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
+                    <input value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} />
                   </div>
                 </div>
               </div>
 
-              {/* Items */}
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Items</div>
                 <div style={{ fontSize: '11px', color: '#888', marginBottom: '10px' }}>Each item = 1 box. Each box gets its own label.</div>
@@ -432,23 +409,8 @@ span { display: inline-block !important; }
                         <select value={item.flowerId} onChange={e => handleItemChange(i, 'flowerId', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
                           {flowerOptions.map(f => <option key={f.id} value={String(f.id)}>{flowerDisplayName(f)}</option>)}
                         </select>
-                        <input
-                          type="number"
-                          value={qtyInputs[i] ?? ''}
-                          min={0}
-                          onChange={e => handleItemChange(i, 'qty', e.target.value)}
-                          placeholder="0"
-                          style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}
-                        />
-                        <input
-                          type="number"
-                          value={priceInputs[i] ?? ''}
-                          min={0}
-                          step={0.01}
-                          onChange={e => handleItemChange(i, 'price', e.target.value)}
-                          placeholder="0.00"
-                          style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}
-                        />
+                        <input type="number" value={qtyInputs[i] ?? ''} min={0} onChange={e => handleItemChange(i, 'qty', e.target.value)} placeholder="0" style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
+                        <input type="number" value={priceInputs[i] ?? ''} min={0} step={0.01} onChange={e => handleItemChange(i, 'price', e.target.value)} placeholder="0.00" style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
                         <input value={`$${item.sub.toFixed(2)}`} readOnly style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#666', background: '#f9f9f8' }} />
                         <button onClick={() => removeItem(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '16px', color: '#888' }}>x</button>
                       </div>
@@ -458,7 +420,6 @@ span { display: inline-block !important; }
                 )}
               </div>
 
-              {/* Logistics */}
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Logistics</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -475,7 +436,6 @@ span { display: inline-block !important; }
                 </div>
               </div>
 
-              {/* Totals */}
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
@@ -489,9 +449,7 @@ span { display: inline-block !important; }
                     <button onClick={() => {
                       setCustomer(''); setAddr(''); setPhone(''); setCustomerChargesFee(false)
                       const blank = blankItem(flowerOptions)
-                      setItems([blank])
-                      setQtyInputs([''])
-                      setPriceInputs([String(blank.price || '')])
+                      setItems([blank]); setQtyInputs(['']); setPriceInputs([String(blank.price || '')])
                     }} style={{ padding: '8px 12px', background: 'transparent', color: '#444', border: '0.5px solid #e5e5e3', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Clear</button>
                   </div>
                 </div>
@@ -499,7 +457,6 @@ span { display: inline-block !important; }
               </div>
             </div>
 
-            {/* Batch panel */}
             <div style={{ width: '260px', flexShrink: 0 }}>
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', position: 'sticky', top: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -521,7 +478,7 @@ span { display: inline-block !important; }
                         </div>
                         <div style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace', marginBottom: '4px' }}>{o.id}</div>
                         <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>{o.items.map(it => `${it.name} x${it.qty}`).join(', ')}</div>
-                        <div style={{ fontSize: '10px', color: '#185FA5', marginBottom: '4px' }}>{o.items.length} box{o.items.length !== 1 ? 'es' : ''} / {o.items.length} label{o.items.length !== 1 ? 's' : ''}</div>
+                        <div style={{ fontSize: '10px', color: '#185FA5', marginBottom: '4px' }}>{o.items.length} box{o.items.length !== 1 ? 'es' : ''}</div>
                         {o.ccFee > 0 && <div style={{ fontSize: '10px', color: '#854F0B', marginBottom: '4px' }}>+${o.ccFee.toFixed(2)} CC fee</div>}
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ fontSize: '12px', fontWeight: '500', color: '#185FA5' }}>${o.total.toFixed(2)}</span>
@@ -530,23 +487,11 @@ span { display: inline-block !important; }
                       </div>
                     ))}
                     <div style={{ borderTop: '0.5px solid #e5e5e3', paddingTop: '10px', marginTop: '4px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginBottom: '4px' }}>
-                        <span>Items subtotal</span><span>${batchSubtotal.toFixed(2)}</span>
-                      </div>
-                      {batchFees > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#854F0B', marginBottom: '4px' }}>
-                          <span>CC fees</span><span>${batchFees.toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginBottom: '4px' }}>
-                        <span>Batch total</span><span style={{ fontWeight: '500', color: '#185FA5' }}>${batchTotal.toFixed(2)}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginBottom: '10px' }}>
-                        <span>Commission</span><span style={{ color: '#3B6D11' }}>${batchComm.toFixed(2)}</span>
-                      </div>
-                      <button onClick={() => setStep('review')} style={{ width: '100%', padding: '9px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>
-                        Review and finalize
-                      </button>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginBottom: '4px' }}><span>Items subtotal</span><span>${batchSubtotal.toFixed(2)}</span></div>
+                      {batchFees > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#854F0B', marginBottom: '4px' }}><span>CC fees</span><span>${batchFees.toFixed(2)}</span></div>}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginBottom: '4px' }}><span>Batch total</span><span style={{ fontWeight: '500', color: '#185FA5' }}>${batchTotal.toFixed(2)}</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginBottom: '10px' }}><span>Commission</span><span style={{ color: '#3B6D11' }}>${batchComm.toFixed(2)}</span></div>
+                      <button onClick={() => setStep('review')} style={{ width: '100%', padding: '9px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Review and finalize</button>
                     </div>
                   </>
                 )}
@@ -555,17 +500,11 @@ span { display: inline-block !important; }
           </div>
         )}
 
-        {/* STEP 2 - Review */}
         {step === 'review' && (
           <div>
             <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Review batch -- {batch.length} orders / {totalLabels} labels</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
-              {[
-                { label: 'Total orders', value: batch.length.toString() },
-                { label: 'Total labels', value: totalLabels.toString() },
-                { label: 'Batch total', value: `$${batchTotal.toFixed(2)}` },
-                { label: 'Commission (7%)', value: `$${batchComm.toFixed(2)}` },
-              ].map(m => (
+              {[{ label: 'Total orders', value: batch.length.toString() }, { label: 'Total labels', value: totalLabels.toString() }, { label: 'Batch total', value: `$${batchTotal.toFixed(2)}` }, { label: 'Commission (7%)', value: `$${batchComm.toFixed(2)}` }].map(m => (
                 <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
                   <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
                   <div style={{ fontSize: '20px', fontWeight: '600', color: '#111' }}>{m.value}</div>
@@ -574,9 +513,7 @@ span { display: inline-block !important; }
             </div>
             <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
               <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>{['Order #', 'Customer', 'Items (boxes)', 'CC fee', 'Total', 'Carrier', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
-                </thead>
+                <thead><tr>{['Order #', 'Customer', 'Items (boxes)', 'CC fee', 'Total', 'Carrier', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
                 <tbody>
                   {batch.map((o, i) => (
                     <tr key={o.id}>
@@ -599,16 +536,11 @@ span { display: inline-block !important; }
           </div>
         )}
 
-        {/* STEP 3 - Print */}
         {step === 'print' && (
           <div>
             <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Labels ready to print</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
-              {[
-                { label: 'Labels to print', value: totalLabels.toString() },
-                { label: 'Batch total', value: `$${batchTotal.toFixed(2)}` },
-                { label: 'Commission earned', value: `$${batchComm.toFixed(2)}` },
-              ].map(m => (
+              {[{ label: 'Labels to print', value: totalLabels.toString() }, { label: 'Batch total', value: `$${batchTotal.toFixed(2)}` }, { label: 'Commission earned', value: `$${batchComm.toFixed(2)}` }].map(m => (
                 <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
                   <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
                   <div style={{ fontSize: '20px', fontWeight: '600', color: '#111' }}>{m.value}</div>
@@ -616,7 +548,7 @@ span { display: inline-block !important; }
               ))}
             </div>
             <div style={{ marginBottom: '1rem', background: '#E6F1FB', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#0C447C' }}>
-              {totalLabels} labels will print ({batch.map(o => `${o.customer}: ${o.items.length} box${o.items.length !== 1 ? 'es' : ''}`).join(', ')}). Orders go to Manager Pending Invoices.
+              {totalLabels} labels will print. Orders go to Manager Pending Invoices.
             </div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
               {!printed ? (
@@ -628,8 +560,6 @@ span { display: inline-block !important; }
               )}
               <button onClick={() => { setBatch([]); setStep('add'); setPrinted(false) }} style={{ padding: '9px 14px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Done -- start new batch</button>
             </div>
-
-            {/* Label previews */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {batch.flatMap(o => o.items.map((it, boxIndex) => (
                 <div key={`${o.id}-${boxIndex}`} style={{ background: 'white', border: '1.5px solid #ccc', borderRadius: '4px', padding: '10px', fontFamily: 'monospace', fontSize: '7px', color: '#111' }}>

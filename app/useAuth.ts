@@ -1,6 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export function useAuth(requiredRole?: 'manager' | 'rep') {
+  const [checked, setChecked] = useState(false)
+
   useEffect(() => {
     const role = localStorage.getItem('user_role')
     const name = localStorage.getItem('user_name')
@@ -14,5 +16,9 @@ export function useAuth(requiredRole?: 'manager' | 'rep') {
       window.location.href = '/dashboard'
       return
     }
+
+    setChecked(true)
   }, [requiredRole])
+
+  return checked
 }

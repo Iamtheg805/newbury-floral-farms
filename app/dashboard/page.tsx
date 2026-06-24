@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../useAuth'
 
 export default function Dashboard() {
-  useAuth()
+  const authReady = useAuth()
   const [userName, setUserName] = useState('there')
   const [userInitials, setUserInitials] = useState('?')
   const [revenue, setRevenue] = useState<number | null>(null)
@@ -16,20 +16,17 @@ export default function Dashboard() {
     const userId = localStorage.getItem('user_id') || ''
     setUserName(name)
     setUserInitials(initials)
-
     if (userId) {
       fetch(`/api/stats?rep_id=${userId}`)
         .then(r => r.json())
-        .then(data => {
-          setRevenue(data.revenue)
-          setOrderCount(data.orderCount)
-          setCustomerCount(data.customers)
-        })
+        .then(data => { setRevenue(data.revenue); setOrderCount(data.orderCount); setCustomerCount(data.customers) })
         .catch(() => { setRevenue(0); setOrderCount(0); setCustomerCount(0) })
     } else {
       setRevenue(0); setOrderCount(0); setCustomerCount(0)
     }
   }, [])
+
+  if (!authReady) return null
 
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', active: true },
@@ -66,7 +63,6 @@ export default function Dashboard() {
         </div>
         <a href="/" style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', textDecoration: 'none', display: 'block' }}>Sign out</a>
       </div>
-
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
         <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Good morning, {firstName} 👋</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>

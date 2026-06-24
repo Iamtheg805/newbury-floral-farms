@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useAuth } from '../useAuth'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', active: false },
@@ -21,6 +22,7 @@ const colors = [
 ]
 
 export default function Commission() {
+  const authReady = useAuth()
   const [userName, setUserName] = useState('there')
   const [userInitials, setUserInitials] = useState('?')
   const [leaderboard, setLeaderboard] = useState<LeaderboardRep[]>([])
@@ -32,15 +34,10 @@ export default function Commission() {
     const initials = localStorage.getItem('user_initials') || name.split(' ').map(w => w[0]).join('').toUpperCase() || '?'
     setUserName(name)
     setUserInitials(initials)
-
-    fetch('/api/leaderboard')
-      .then(r => r.json())
-      .then(data => {
-        setLeaderboard(data.leaderboard || [])
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    fetch('/api/leaderboard').then(r => r.json()).then(data => { setLeaderboard(data.leaderboard || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
+
+  if (!authReady) return null
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('user_id') : null
   const myEntry = leaderboard.find(r => r.id === userId)
@@ -56,8 +53,6 @@ export default function Commission() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
-
-      {/* Sidebar */}
       <div style={{ width: '200px', background: '#ffffff', borderRight: '0.5px solid #e5e5e3', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #e5e5e3' }}>
           <div style={{ fontSize: '14px', fontWeight: '500', color: '#111' }}>Newbury Floral Farms</div>
@@ -72,25 +67,19 @@ export default function Commission() {
         </div>
         <div style={{ padding: '4px 0' }}>
           {navItems.map(item => (
-            <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', textDecoration: 'none' }}>
-              {item.label}
-            </a>
+            <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', textDecoration: 'none' }}>{item.label}</a>
           ))}
         </div>
         <a href="/" style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', textDecoration: 'none', display: 'block' }}>Sign out</a>
       </div>
-
-      {/* Main */}
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
-        <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>My Commission — this month</div>
-
-        {/* Top metrics */}
+        <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>My Commission -- this month</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1rem' }}>
           {[
             { label: 'Revenue this month', value: loading ? '...' : `$${myRevenue.toLocaleString()}`, sub: 'All finalized orders', subColor: '#3B6D11' },
             { label: 'Commission earned', value: loading ? '...' : `$${myCommission.toLocaleString()}`, sub: `${myRate}% tier`, subColor: '#185FA5' },
-            { label: 'Current tier', value: `${myRate}%`, sub: myRevenue >= 20000 ? (myRevenue >= 40000 ? '$40k+ range' : '$20k–$40k range') : '$0–$20k range', subColor: '#666' },
-            { label: 'To next tier', value: remainingToNextTier === 0 ? 'Maxed!' : `$${remainingToNextTier.toLocaleString()}`, sub: remainingToNextTier === 0 ? `You're at ${nextTierRate}%` : `Unlocks ${nextTierRate}%`, subColor: '#854F0B' },
+            { label: 'Current tier', value: `${myRate}%`, sub: myRevenue >= 20000 ? (myRevenue >= 40000 ? '$40k+ range' : '$20k-$40k range') : '$0-$20k range', subColor: '#666' },
+            { label: 'To next tier', value: remainingToNextTier === 0 ? 'Maxed!' : `$${remainingToNextTier.toLocaleString()}`, sub: remainingToNextTier === 0 ? `You are at ${nextTierRate}%` : `Unlocks ${nextTierRate}%`, subColor: '#854F0B' },
           ].map(m => (
             <div key={m.label} style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '10px', padding: '14px' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>{m.label}</div>
@@ -99,15 +88,12 @@ export default function Commission() {
             </div>
           ))}
         </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-
-          {/* Tier progress */}
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Commission tiers — your progress</div>
+            <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Commission tiers -- your progress</div>
             {[
-              { label: '$0–$20k', rate: '5%', min: 0, max: 20000 },
-              { label: '$20k–$40k', rate: '7%', min: 20000, max: 40000 },
+              { label: '$0-$20k', rate: '5%', min: 0, max: 20000 },
+              { label: '$20k-$40k', rate: '7%', min: 20000, max: 40000 },
               { label: '$40k+', rate: '10%', min: 40000, max: 60000 },
             ].map(t => {
               const active = myRevenue >= t.min && myRevenue < t.max
@@ -129,13 +115,9 @@ export default function Commission() {
               )
             })}
           </div>
-
-          {/* Commission calculator */}
           <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
             <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Commission calculator</div>
-            <div style={{ fontSize: '12px', color: '#444', marginBottom: '6px' }}>
-              Order value: <strong style={{ color: '#111' }}>${sliderVal.toLocaleString()}</strong>
-            </div>
+            <div style={{ fontSize: '12px', color: '#444', marginBottom: '6px' }}>Order value: <strong style={{ color: '#111' }}>${sliderVal.toLocaleString()}</strong></div>
             <input type="range" min={500} max={20000} step={100} value={sliderVal} onChange={e => setSliderVal(parseInt(e.target.value))} style={{ width: '100%', marginBottom: '14px' }} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
               {[
@@ -151,36 +133,29 @@ export default function Commission() {
             </div>
           </div>
         </div>
-
-        {/* Leaderboard */}
         <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Leaderboard — this month</div>
-          {loading ? (
-            <div style={{ fontSize: '12px', color: '#888', padding: '1rem 0' }}>Loading...</div>
-          ) : leaderboard.length === 0 ? (
+          <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Leaderboard -- this month</div>
+          {loading ? <div style={{ fontSize: '12px', color: '#888', padding: '1rem 0' }}>Loading...</div> : leaderboard.length === 0 ? (
             <div style={{ fontSize: '12px', color: '#888', padding: '1rem 0' }}>No reps found yet.</div>
-          ) : (
-            leaderboard.map((r, i) => {
-              const isMe = r.id === userId
-              const c = colors[i % colors.length]
-              const initials = r.name.split(' ').map(w => w[0]).join('').toUpperCase()
-              return (
-                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '8px', marginBottom: '4px', background: isMe ? '#E6F1FB' : 'transparent' }}>
-                  <div style={{ width: '22px', fontSize: '12px', fontWeight: '500', color: i === 0 ? '#BA7517' : i === 1 ? '#888' : '#666' }}>{i + 1}</div>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: c.bg, color: c.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{initials}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '12px', fontWeight: '500', color: isMe ? '#0C447C' : '#111' }}>{r.name}{isMe ? ' (you)' : ''}</div>
-                    <div style={{ fontSize: '11px', color: '#888' }}>${r.revenue.toLocaleString()} · {r.rate}% tier</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '12px', fontWeight: '500', color: '#3B6D11' }}>${r.commission.toLocaleString()}</div>
-                  </div>
+          ) : leaderboard.map((r, i) => {
+            const isMe = r.id === userId
+            const c = colors[i % colors.length]
+            const initials = r.name.split(' ').map(w => w[0]).join('').toUpperCase()
+            return (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '8px', marginBottom: '4px', background: isMe ? '#E6F1FB' : 'transparent' }}>
+                <div style={{ width: '22px', fontSize: '12px', fontWeight: '500', color: i === 0 ? '#BA7517' : i === 1 ? '#888' : '#666' }}>{i + 1}</div>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: c.bg, color: c.tc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '500' }}>{initials}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '12px', fontWeight: '500', color: isMe ? '#0C447C' : '#111' }}>{r.name}{isMe ? ' (you)' : ''}</div>
+                  <div style={{ fontSize: '11px', color: '#888' }}>${r.revenue.toLocaleString()} · {r.rate}% tier</div>
                 </div>
-              )
-            })
-          )}
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '500', color: '#3B6D11' }}>${r.commission.toLocaleString()}</div>
+                </div>
+              </div>
+            )
+          })}
         </div>
-
       </div>
     </div>
   )
