@@ -633,6 +633,7 @@ export default function Manager() {
     }).catch(() => setLoading(false))
   }, [])
 
+  if (!authReady) return null
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f9f9f8' }}>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} pendingCount={pendingCount} />
