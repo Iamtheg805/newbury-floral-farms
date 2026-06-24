@@ -423,7 +423,6 @@ function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
 
   function saveTiers() { setFeedback('✓ Tiers saved!'); setTimeout(() => setFeedback(''), 3000) }
 
-  if (!authReady) return null
   return (
     <div>
       <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Commission Tiers</div>
