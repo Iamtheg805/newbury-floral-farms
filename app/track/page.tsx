@@ -115,7 +115,7 @@ function TrackContent() {
       <div style={{ borderBottom: '0.5px solid #e5e5e3', background: 'white', padding: '16px 1.5rem' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt={settings.name} style={{ height: '38px', width: 'auto' }} />
+          <img src="https://portal.newburyfloralfarms.com/logo.png" alt={settings.name} style={{ height: '38px', width: 'auto' }} />
         </div>
       </div>
 
