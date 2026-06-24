@@ -423,6 +423,7 @@ function TiersTab({ leaderboard }: { leaderboard: LeaderboardRep[] }) {
 
   function saveTiers() { setFeedback('✓ Tiers saved!'); setTimeout(() => setFeedback(''), 3000) }
 
+  if (!authReady) return null
   return (
     <div>
       <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>Commission Tiers</div>
@@ -615,7 +616,7 @@ function SettingsTab() {
 }
 
 export default function Manager() {
-  useAuth('manager')
+  const authReady = useAuth('manager')
   const [activeTab, setActiveTab] = useState('overview')
   const [leaderboard, setLeaderboard] = useState<LeaderboardRep[]>([])
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
