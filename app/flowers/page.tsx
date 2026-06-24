@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../useAuth'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', active: false },

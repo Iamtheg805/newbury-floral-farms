@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../useAuth'
 
 type LeaderboardRep = { id: string; name: string; revenue: number; orders: number; rate: number; commission: number }
 type RecentOrder = { time: string; rep: string; customer: string; total: string; status: string; carrier: string }
