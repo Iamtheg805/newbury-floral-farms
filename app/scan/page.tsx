@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useAuth } from '../useAuth'
 
 declare global {
   interface Window {
@@ -21,6 +22,7 @@ const STAGES = [
 type ResultEntry = { order_number: string; customer?: string; success: boolean; message: string }
 
 export default function ScanStation() {
+  const authReady = useAuth()
   const [userName, setUserName] = useState('')
   const [userRole, setUserRole] = useState('')
   const [stage, setStage] = useState('packed')
@@ -31,7 +33,6 @@ export default function ScanStation() {
   const [submitting, setSubmitting] = useState(false)
   const [cameraError, setCameraError] = useState('')
   const [justScanned, setJustScanned] = useState('')
-  const [authChecked, setAuthChecked] = useState(false)
   const readerRef = useRef<InstanceType<Window['ZXing']['BrowserMultiFormatReader']> | null>(null)
   const lastScanRef = useRef<{ code: string; time: number }>({ code: '', time: 0 })
   const queueRef = useRef<string[]>([])
@@ -39,13 +40,8 @@ export default function ScanStation() {
   useEffect(() => {
     const name = localStorage.getItem('user_name') || ''
     const role = localStorage.getItem('user_role') || ''
-    if (!name || !role) {
-      window.location.href = '/'
-      return
-    }
     setUserName(name)
     setUserRole(role)
-    setAuthChecked(true)
 
     const script = document.createElement('script')
     script.src = 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'
@@ -59,6 +55,8 @@ export default function ScanStation() {
       document.body.removeChild(script)
     }
   }, [])
+
+  if (!authReady) return null
 
   function handleDetected(code: string) {
     const now = Date.now()
@@ -125,15 +123,11 @@ export default function ScanStation() {
     setSubmitting(false)
   }
 
-  if (!authChecked) return null
-
   const stageMeta = STAGES.find(s => s.key === stage)!
   const backHref = userRole === 'manager' ? '/manager' : '/dashboard'
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9f9f8', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-
-      {/* Top bar */}
       <div style={{ background: 'white', borderBottom: '0.5px solid #e5e5e3', padding: '12px 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -146,28 +140,15 @@ export default function ScanStation() {
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1.25rem 1rem' }}>
         <div style={{ fontSize: '12px', color: '#888', marginBottom: '1rem' }}>Hi {userName} -- pick a stage, scan all your packages, then submit them together.</div>
 
-        {/* Stage selector */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '1rem' }}>
           {STAGES.map(s => (
-            <button
-              key={s.key}
-              onClick={() => setStage(s.key)}
-              style={{
-                padding: '12px 6px',
-                borderRadius: '10px',
-                border: stage === s.key ? `2px solid ${s.color}` : '1px solid #e5e5e3',
-                background: stage === s.key ? `${s.color}15` : 'white',
-                cursor: 'pointer',
-                textAlign: 'center',
-              }}
-            >
+            <button key={s.key} onClick={() => setStage(s.key)} style={{ padding: '12px 6px', borderRadius: '10px', border: stage === s.key ? `2px solid ${s.color}` : '1px solid #e5e5e3', background: stage === s.key ? `${s.color}15` : 'white', cursor: 'pointer', textAlign: 'center' }}>
               <div style={{ fontSize: '20px', marginBottom: '4px' }}>{s.icon}</div>
               <div style={{ fontSize: '11px', fontWeight: stage === s.key ? '600' : '500', color: stage === s.key ? s.color : '#444' }}>{s.label}</div>
             </button>
           ))}
         </div>
 
-        {/* Camera */}
         <div style={{ background: 'white', borderRadius: '12px', border: '0.5px solid #e5e5e3', padding: '1rem', marginBottom: '1rem' }}>
           {!scanning ? (
             <button onClick={startScanning} style={{ width: '100%', padding: '14px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
@@ -192,15 +173,10 @@ export default function ScanStation() {
           {cameraError && <div style={{ marginTop: '10px', fontSize: '12px', color: '#A32D2D' }}>{cameraError}</div>}
         </div>
 
-        {/* Queue */}
         <div style={{ background: 'white', borderRadius: '12px', border: '0.5px solid #e5e5e3', padding: '1rem', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Ready to submit ({queue.length})
-            </div>
-            {queue.length > 0 && (
-              <button onClick={() => { queueRef.current = []; setQueue([]) }} style={{ border: 'none', background: 'transparent', color: '#A32D2D', fontSize: '11px', cursor: 'pointer' }}>Clear all</button>
-            )}
+            <div style={{ fontSize: '11px', fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ready to submit ({queue.length})</div>
+            {queue.length > 0 && <button onClick={() => { queueRef.current = []; setQueue([]) }} style={{ border: 'none', background: 'transparent', color: '#A32D2D', fontSize: '11px', cursor: 'pointer' }}>Clear all</button>}
           </div>
           {queue.length === 0 ? (
             <div style={{ fontSize: '12px', color: '#888' }}>Scan a label to add it here.</div>
@@ -214,18 +190,13 @@ export default function ScanStation() {
                   </div>
                 ))}
               </div>
-              <button
-                onClick={submitAll}
-                disabled={submitting}
-                style={{ width: '100%', padding: '12px', background: submitting ? '#aaa' : stageMeta.color, color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer' }}
-              >
+              <button onClick={submitAll} disabled={submitting} style={{ width: '100%', padding: '12px', background: submitting ? '#aaa' : stageMeta.color, color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer' }}>
                 {submitting ? 'Submitting...' : `Submit ${queue.length} as "${stageMeta.label}"`}
               </button>
             </>
           )}
         </div>
 
-        {/* Results */}
         {results.length > 0 && (
           <div style={{ background: 'white', borderRadius: '12px', border: '0.5px solid #e5e5e3', padding: '1rem' }}>
             <div style={{ fontSize: '11px', fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Last submission results</div>

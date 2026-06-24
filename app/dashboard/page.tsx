@@ -61,6 +61,7 @@ export default function Dashboard() {
             <a key={item.label} href={item.href} style={{ display: 'block', padding: '9px 16px', fontSize: '12px', color: item.active ? '#185FA5' : '#444', fontWeight: item.active ? '500' : '400', borderLeft: item.active ? '2px solid #185FA5' : '2px solid transparent', background: item.active ? '#f0f7ff' : 'transparent', textDecoration: 'none' }}>{item.label}</a>
           ))}
         </div>
+        <a href="/scan" style={{ padding: '9px 16px', fontSize: '12px', color: '#444', textDecoration: 'none', display: 'block', borderTop: '0.5px solid #e5e5e3', marginTop: '8px' }}>Scan Station</a>
         <a href="/" style={{ marginTop: 'auto', padding: '14px 16px', borderTop: '0.5px solid #e5e5e3', fontSize: '12px', color: '#888', textDecoration: 'none', display: 'block' }}>Sign out</a>
       </div>
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
