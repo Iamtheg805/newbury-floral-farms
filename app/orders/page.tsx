@@ -63,6 +63,14 @@ function flowerDisplayName(f: FlowerOption) {
   return f.variety && f.variety.trim() ? `${f.name} (${f.variety})` : f.name
 }
 
+function isLabelItem(item: { name: string; unit: string }) {
+  const nameLower = item.name.toLowerCase()
+  return !nameLower.includes('box') &&
+    !nameLower.includes('bucket') &&
+    !nameLower.includes('hamper') &&
+    item.unit !== 'bucket'
+}
+
 export default function Orders() {
   const authReady = useAuth()
   const [step, setStep] = useState<'add' | 'review' | 'print'>('add')
@@ -203,7 +211,7 @@ export default function Orders() {
   const batchSubtotal = batch.reduce((s, o) => s + o.itemsSubtotal, 0)
   const batchFees = batch.reduce((s, o) => s + o.ccFee, 0)
   const batchComm = batchSubtotal * 0.07
-  const totalLabels = batch.reduce((s, o) => s + o.items.length, 0)
+  const totalLabels = batch.reduce((s, o) => s + o.items.filter(isLabelItem).length, 0)
 
   async function saveOrders() {
     const repId = localStorage.getItem('user_id') || ''
@@ -218,12 +226,14 @@ export default function Orders() {
     }
   }
 
-  function buildLabelHTML(labelOrders: { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: { name: string; qty: number }[] }[]) {
+  function buildLabelHTML(labelOrders: { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: { name: string; qty: number; unit: string }[] }[]) {
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const repName = localStorage.getItem('user_name') || 'Rep'
     const labelsHTML = labelOrders.flatMap(o => {
-      const totalBoxes = o.items.length
-      return o.items.map((it, boxIndex) => `
+      const labelItems = o.items.filter(isLabelItem)
+      const totalBoxes = labelItems.length
+      if (totalBoxes === 0) return []
+      return labelItems.map((it, boxIndex) => `
         <div style="width:4in;height:6in;padding:0.18in;font-family:monospace;font-size:9px;color:#111;page-break-after:always;box-sizing:border-box;">
           <div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px;">
             <div>
@@ -258,7 +268,7 @@ export default function Orders() {
           </div>
           <div style="font-size:8px;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;">All boxes in this order (${totalBoxes} total)</div>
           <div style="border-top:0.5px solid #ddd;padding-top:4px;margin-bottom:10px;">
-            ${o.items.map((it2, idx2) => `
+            ${labelItems.map((it2, idx2) => `
               <div style="display:flex;justify-content:space-between;line-height:1.9;font-size:10px;color:${idx2 === boxIndex ? '#111' : '#888'};">
                 <span>${idx2 === boxIndex ? '&gt; ' : ''}${it2.name}</span>
                 <span>x ${it2.qty}</span>
@@ -280,7 +290,7 @@ export default function Orders() {
   }
 
   function printLabels() {
-    const labelOrders = batch.map(o => ({ id: o.id, customer: o.customer, addr: o.addr, phone: o.phone, carrier: o.carrier, truck: o.truck, items: o.items.map(it => ({ name: it.name, qty: it.qty })) }))
+    const labelOrders = batch.map(o => ({ id: o.id, customer: o.customer, addr: o.addr, phone: o.phone, carrier: o.carrier, truck: o.truck, items: o.items.map(it => ({ name: it.name, qty: it.qty, unit: it.unit })) }))
     const fullHTML = buildLabelHTML(labelOrders)
     const blob = new Blob([fullHTML], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
@@ -292,7 +302,7 @@ export default function Orders() {
   function reprintLabel(o: TodayOrder) {
     const found = customers.find(c => c.name === o.customer)
     const fullAddr = found ? [found.adress, found.city, found.state].filter(Boolean).join(', ') + (found.zip ? ` ${found.zip}` : '') : 'Address on file'
-    const fullHTML = buildLabelHTML([{ id: o.id, customer: o.customer, addr: fullAddr, phone: found?.phone || '', carrier: o.carrier, truck: o.truck, items: o.items.map(it => ({ name: it.name, qty: it.qty })) }])
+    const fullHTML = buildLabelHTML([{ id: o.id, customer: o.customer, addr: fullAddr, phone: found?.phone || '', carrier: o.carrier, truck: o.truck, items: o.items.map(it => ({ name: it.name, qty: it.qty, unit: it.unit })) }])
     const blob = new Blob([fullHTML], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const printWindow = window.open(url)
@@ -397,26 +407,29 @@ export default function Orders() {
 
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Items</div>
-                <div style={{ fontSize: '11px', color: '#888', marginBottom: '10px' }}>Each item = 1 box. Each box gets its own label.</div>
+                <div style={{ fontSize: '11px', color: '#888', marginBottom: '10px' }}>Flowers get labels. Boxes/buckets appear on invoices only.</div>
                 {flowerOptions.length === 0 ? (
                   <div style={{ fontSize: '12px', color: '#888', background: '#f9f9f8', padding: '10px', borderRadius: '8px' }}>No flowers in inventory yet.</div>
                 ) : (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 65px 85px 75px 24px', gap: '5px', paddingBottom: '6px', borderBottom: '0.5px solid #f0f0ee', marginBottom: '8px' }}>
-                      {['Flower', 'Qty', 'Price/unit', 'Subtotal', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
+                      {['Flower / Item', 'Qty', 'Price/unit', 'Subtotal', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
                     </div>
                     {items.map((item, i) => (
                       <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 65px 85px 75px 24px', gap: '5px', marginBottom: '6px', alignItems: 'center' }}>
-                        <select value={item.flowerId} onChange={e => handleItemChange(i, 'flowerId', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
-                          {flowerOptions.map(f => <option key={f.id} value={String(f.id)}>{flowerDisplayName(f)}</option>)}
-                        </select>
+                        <div>
+                          <select value={item.flowerId} onChange={e => handleItemChange(i, 'flowerId', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
+                            {flowerOptions.map(f => <option key={f.id} value={String(f.id)}>{flowerDisplayName(f)}</option>)}
+                          </select>
+                          {!isLabelItem(item) && <div style={{ fontSize: '9px', color: '#854F0B', marginTop: '2px' }}>Invoice only -- no label</div>}
+                        </div>
                         <input type="number" value={qtyInputs[i] ?? ''} min={0} onChange={e => handleItemChange(i, 'qty', e.target.value)} placeholder="0" style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
                         <input type="number" value={priceInputs[i] ?? ''} min={0} step={0.01} onChange={e => handleItemChange(i, 'price', e.target.value)} placeholder="0.00" style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
                         <input value={`$${item.sub.toFixed(2)}`} readOnly style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#666', background: '#f9f9f8' }} />
                         <button onClick={() => removeItem(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '16px', color: '#888' }}>x</button>
                       </div>
                     ))}
-                    <button onClick={addItem} style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '0.5px solid #e5e5e3', background: 'transparent', cursor: 'pointer', color: '#444', marginTop: '4px' }}>+ Add item (box)</button>
+                    <button onClick={addItem} style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '0.5px solid #e5e5e3', background: 'transparent', cursor: 'pointer', color: '#444', marginTop: '4px' }}>+ Add item</button>
                   </>
                 )}
               </div>
@@ -443,7 +456,7 @@ export default function Orders() {
                     <div style={{ fontSize: '12px', color: '#888' }}>Items subtotal: <span style={{ color: '#111' }}>${itemsSubtotal.toFixed(2)}</span></div>
                     {customerChargesFee && <div style={{ fontSize: '12px', color: '#854F0B', marginTop: '2px' }}>+ CC fee (2.99%): ${ccFee.toFixed(2)}</div>}
                     <div style={{ fontSize: '13px', fontWeight: '500', color: '#111', marginTop: '2px' }}>Order total: <span style={{ color: '#185FA5' }}>${total.toFixed(2)}</span></div>
-                    <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>Commission (7%): <span style={{ color: '#3B6D11' }}>${commission.toFixed(2)}</span> · <span style={{ color: '#185FA5' }}>{items.length} box{items.length !== 1 ? 'es' : ''}</span></div>
+                    <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>Commission (7%): <span style={{ color: '#3B6D11' }}>${commission.toFixed(2)}</span> · <span style={{ color: '#185FA5' }}>{items.filter(isLabelItem).length} label{items.filter(isLabelItem).length !== 1 ? 's' : ''}</span></div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button onClick={addToBatch} style={{ padding: '8px 16px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>+ Add to batch</button>
@@ -479,7 +492,7 @@ export default function Orders() {
                         </div>
                         <div style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace', marginBottom: '4px' }}>{o.id}</div>
                         <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>{o.items.map(it => `${it.name} x${it.qty}`).join(', ')}</div>
-                        <div style={{ fontSize: '10px', color: '#185FA5', marginBottom: '4px' }}>{o.items.length} box{o.items.length !== 1 ? 'es' : ''}</div>
+                        <div style={{ fontSize: '10px', color: '#185FA5', marginBottom: '4px' }}>{o.items.filter(isLabelItem).length} label{o.items.filter(isLabelItem).length !== 1 ? 's' : ''}</div>
                         {o.ccFee > 0 && <div style={{ fontSize: '10px', color: '#854F0B', marginBottom: '4px' }}>+${o.ccFee.toFixed(2)} CC fee</div>}
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ fontSize: '12px', fontWeight: '500', color: '#185FA5' }}>${o.total.toFixed(2)}</span>
@@ -514,13 +527,14 @@ export default function Orders() {
             </div>
             <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
               <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-                <thead><tr>{['Order #', 'Customer', 'Items (boxes)', 'CC fee', 'Total', 'Carrier', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
+                <thead><tr>{['Order #', 'Customer', 'Items', 'Labels', 'CC fee', 'Total', 'Carrier', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr></thead>
                 <tbody>
                   {batch.map((o, i) => (
                     <tr key={o.id}>
                       <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '10px', borderBottom: '0.5px solid #f0f0ee', color: '#111' }}>{o.id}</td>
                       <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>{o.customer}</td>
-                      <td style={{ padding: '8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items.map(it => `${it.name} x${it.qty}`).join(', ')} <span style={{ color: '#185FA5' }}>({o.items.length} box{o.items.length !== 1 ? 'es' : ''})</span></td>
+                      <td style={{ padding: '8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items.map(it => `${it.name} x${it.qty}`).join(', ')}</td>
+                      <td style={{ padding: '8px', color: '#185FA5', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{o.items.filter(isLabelItem).length}</td>
                       <td style={{ padding: '8px', color: '#854F0B', borderBottom: '0.5px solid #f0f0ee' }}>{o.ccFee > 0 ? `$${o.ccFee.toFixed(2)}` : '--'}</td>
                       <td style={{ padding: '8px', fontWeight: '500', color: '#111', borderBottom: '0.5px solid #f0f0ee' }}>${o.total.toFixed(2)}</td>
                       <td style={{ padding: '8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{o.carrier}</td>
@@ -549,7 +563,7 @@ export default function Orders() {
               ))}
             </div>
             <div style={{ marginBottom: '1rem', background: '#E6F1FB', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#0C447C' }}>
-              {totalLabels} labels will print. Orders go to Manager Pending Invoices.
+              {totalLabels} labels will print (boxes/buckets excluded). Orders go to Manager Pending Invoices.
             </div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
               {!printed ? (
@@ -562,42 +576,45 @@ export default function Orders() {
               <button onClick={() => { setBatch([]); setStep('add'); setPrinted(false) }} style={{ padding: '9px 14px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>Done -- start new batch</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              {batch.flatMap(o => o.items.map((it, boxIndex) => (
-                <div key={`${o.id}-${boxIndex}`} style={{ background: 'white', border: '1.5px solid #ccc', borderRadius: '4px', padding: '10px', fontFamily: 'monospace', fontSize: '7px', color: '#111' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1.5px solid #111', paddingBottom: '6px', marginBottom: '8px' }}>
-                    <div>
-                      <div style={{ fontWeight: 'bold', fontSize: '9px' }}>{settings.name.toUpperCase()}</div>
-                      <div>{settings.address}, {settings.city} {settings.state}</div>
+              {batch.flatMap(o => o.items.filter(isLabelItem).map((it, boxIndex) => {
+                const labelItems = o.items.filter(isLabelItem)
+                return (
+                  <div key={`${o.id}-${boxIndex}`} style={{ background: 'white', border: '1.5px solid #ccc', borderRadius: '4px', padding: '10px', fontFamily: 'monospace', fontSize: '7px', color: '#111' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1.5px solid #111', paddingBottom: '6px', marginBottom: '8px' }}>
+                      <div>
+                        <div style={{ fontWeight: 'bold', fontSize: '9px' }}>{settings.name.toUpperCase()}</div>
+                        <div>{settings.address}, {settings.city} {settings.state}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{o.carrier}</div>
+                        <div>{o.truck}</div>
+                      </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{o.carrier}</div>
-                      <div>{o.truck}</div>
+                    <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>{o.customer}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f5f5', padding: '6px 8px', borderRadius: '4px', marginBottom: '6px' }}>
+                      <div>
+                        <div style={{ fontSize: '9px', fontWeight: 'bold' }}>{it.name}</div>
+                        <div style={{ fontSize: '8px', color: '#666' }}>x{it.qty}</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '8px', color: '#888' }}>Box</div>
+                        <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{boxIndex + 1}<span style={{ fontSize: '9px', color: '#888' }}> of {labelItems.length}</span></div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '7px', color: '#888', marginBottom: '3px' }}>All boxes:</div>
+                    {labelItems.map((it2, idx2) => (
+                      <div key={idx2} style={{ fontSize: '7px', color: idx2 === boxIndex ? '#111' : '#aaa' }}>{idx2 === boxIndex ? '> ' : ''}{it2.name} x{it2.qty}</div>
+                    ))}
+                    <div style={{ borderTop: '1px solid #111', paddingTop: '4px', marginTop: '4px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '6px', color: '#aaa', marginBottom: '2px' }}>barcode prints on actual label</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px' }}>
+                        <span>{o.id}</span>
+                        <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>{o.customer}</div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f5f5', padding: '6px 8px', borderRadius: '4px', marginBottom: '6px' }}>
-                    <div>
-                      <div style={{ fontSize: '9px', fontWeight: 'bold' }}>{it.name}</div>
-                      <div style={{ fontSize: '8px', color: '#666' }}>x{it.qty}</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '8px', color: '#888' }}>Box</div>
-                      <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{boxIndex + 1}<span style={{ fontSize: '9px', color: '#888' }}> of {o.items.length}</span></div>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '7px', color: '#888', marginBottom: '3px' }}>All boxes:</div>
-                  {o.items.map((it2, idx2) => (
-                    <div key={idx2} style={{ fontSize: '7px', color: idx2 === boxIndex ? '#111' : '#aaa' }}>{idx2 === boxIndex ? '> ' : ''}{it2.name} x{it2.qty}</div>
-                  ))}
-                  <div style={{ borderTop: '1px solid #111', paddingTop: '4px', marginTop: '4px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '6px', color: '#aaa', marginBottom: '2px' }}>barcode prints on actual label</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px' }}>
-                      <span>{o.id}</span>
-                      <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                  </div>
-                </div>
-              )))}
+                )
+              }))}
             </div>
           </div>
         )}
