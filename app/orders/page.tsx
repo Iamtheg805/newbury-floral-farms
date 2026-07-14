@@ -13,7 +13,7 @@ const navItems = [
 
 const carriers = ['Armellini', 'Prime', 'Florida Beauty', 'Tawjo', 'Growers', 'FedEx']
 
-type Item = { flowerId: string; name: string; price: number; unit: string; qty: number; sub: number }
+type Item = { flowerId: string; name: string; price: number; unit: string; qty: number; sub: number; description: string }
 type Order = { id: string; customer: string; addr: string; phone: string; carrier: string; truck: string; items: Item[]; itemsSubtotal: number; ccFee: number; total: number }
 type TodayOrder = { db_id: number; id: string; customer: string; carrier: string; truck: string; total: number; created_at: string; items: { name: string; qty: number; unit: string }[] }
 type CustomerOption = { id: number; name: string; phone: string; adress: string; city: string; state: string; zip: string; charges_cc_fee: boolean }
@@ -95,9 +95,9 @@ export default function Orders() {
   const [priceInputs, setPriceInputs] = useState<string[]>([])
 
   function blankItem(opts: FlowerOption[]): Item {
-    if (opts.length === 0) return { flowerId: '', name: '', price: 0, unit: 'bunch', qty: 0, sub: 0 }
+    if (opts.length === 0) return { flowerId: '', name: '', price: 0, unit: 'bunch', qty: 0, sub: 0, description: '' }
     const f = opts[0]
-    return { flowerId: String(f.id), name: flowerDisplayName(f), price: f.price, unit: f.unit, qty: 0, sub: 0 }
+    return { flowerId: String(f.id), name: flowerDisplayName(f), price: f.price, unit: f.unit, qty: 0, sub: 0, description: '' }
   }
 
   function loadTodaysOrders(repId: string) {
@@ -167,6 +167,8 @@ export default function Orders() {
       updatedPrice[index] = value
       const price = value === '' ? 0 : parseFloat(value) || 0
       updatedItems[index] = { ...updatedItems[index], price, sub: price * updatedItems[index].qty }
+    } else if (field === 'description') {
+      updatedItems[index] = { ...updatedItems[index], description: value }
     }
     setItems(updatedItems)
     setQtyInputs(updatedQty)
@@ -220,7 +222,16 @@ export default function Orders() {
         await fetch('/api/orders/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order_number: order.id, customer_name: order.customer, carrier: order.carrier, truck_id: order.truck, total: order.total, cc_fee_amount: order.ccFee, rep_id: repId, items: order.items.map(it => ({ name: it.name, qty: it.qty, price: it.price, sub: it.sub, unit: it.unit })) }),
+          body: JSON.stringify({
+            order_number: order.id,
+            customer_name: order.customer,
+            carrier: order.carrier,
+            truck_id: order.truck,
+            total: order.total,
+            cc_fee_amount: order.ccFee,
+            rep_id: repId,
+            items: order.items.map(it => ({ name: it.name, qty: it.qty, price: it.price, sub: it.sub, unit: it.unit, description: it.description || '' })),
+          }),
         })
       } catch (e) { console.log('Save error:', e) }
     }
@@ -407,26 +418,34 @@ export default function Orders() {
 
               <div style={{ background: 'white', border: '0.5px solid #e5e5e3', borderRadius: '12px', padding: '1rem', marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '500', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Items</div>
-                <div style={{ fontSize: '11px', color: '#888', marginBottom: '10px' }}>Flowers get labels. Boxes/buckets appear on invoices only.</div>
+                <div style={{ fontSize: '11px', color: '#888', marginBottom: '10px' }}>Flowers get labels. Boxes/buckets appear on invoices only. Description shows on QuickBooks invoice.</div>
                 {flowerOptions.length === 0 ? (
                   <div style={{ fontSize: '12px', color: '#888', background: '#f9f9f8', padding: '10px', borderRadius: '8px' }}>No flowers in inventory yet.</div>
                 ) : (
                   <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 65px 85px 75px 24px', gap: '5px', paddingBottom: '6px', borderBottom: '0.5px solid #f0f0ee', marginBottom: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 80px 70px 24px', gap: '5px', paddingBottom: '6px', borderBottom: '0.5px solid #f0f0ee', marginBottom: '8px' }}>
                       {['Flower / Item', 'Qty', 'Price/unit', 'Subtotal', ''].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: '500', color: '#888' }}>{h}</div>)}
                     </div>
                     {items.map((item, i) => (
-                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 65px 85px 75px 24px', gap: '5px', marginBottom: '6px', alignItems: 'center' }}>
-                        <div>
-                          <select value={item.flowerId} onChange={e => handleItemChange(i, 'flowerId', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
+                      <div key={i} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '0.5px solid #f0f0ee' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 80px 70px 24px', gap: '5px', marginBottom: '5px', alignItems: 'center' }}>
+                          <select value={item.flowerId} onChange={e => handleItemChange(i, 'flowerId', e.target.value)} style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }}>
                             {flowerOptions.map(f => <option key={f.id} value={String(f.id)}>{flowerDisplayName(f)}</option>)}
                           </select>
-                          {!isLabelItem(item) && <div style={{ fontSize: '9px', color: '#854F0B', marginTop: '2px' }}>Invoice only -- no label</div>}
+                          <input type="number" value={qtyInputs[i] ?? ''} min={0} onChange={e => handleItemChange(i, 'qty', e.target.value)} placeholder="0" style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
+                          <input type="number" value={priceInputs[i] ?? ''} min={0} step={0.01} onChange={e => handleItemChange(i, 'price', e.target.value)} placeholder="0.00" style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
+                          <input value={`$${item.sub.toFixed(2)}`} readOnly style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#666', background: '#f9f9f8' }} />
+                          <button onClick={() => removeItem(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '16px', color: '#888' }}>x</button>
                         </div>
-                        <input type="number" value={qtyInputs[i] ?? ''} min={0} onChange={e => handleItemChange(i, 'qty', e.target.value)} placeholder="0" style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
-                        <input type="number" value={priceInputs[i] ?? ''} min={0} step={0.01} onChange={e => handleItemChange(i, 'price', e.target.value)} placeholder="0.00" style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111' }} />
-                        <input value={`$${item.sub.toFixed(2)}`} readOnly style={{ padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#666', background: '#f9f9f8' }} />
-                        <button onClick={() => removeItem(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '16px', color: '#888' }}>x</button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            value={item.description}
+                            onChange={e => handleItemChange(i, 'description', e.target.value)}
+                            placeholder="Description (color, notes...) — shows on QuickBooks invoice"
+                            style={{ flex: 1, padding: '5px 8px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '11px', color: '#111', background: '#fafafa' }}
+                          />
+                          {!isLabelItem(item) && <span style={{ fontSize: '9px', color: '#854F0B', whiteSpace: 'nowrap' }}>Invoice only</span>}
+                        </div>
                       </div>
                     ))}
                     <button onClick={addItem} style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '0.5px solid #e5e5e3', background: 'transparent', cursor: 'pointer', color: '#444', marginTop: '4px' }}>+ Add item</button>

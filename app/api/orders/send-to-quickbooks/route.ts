@@ -13,7 +13,6 @@ function parseFlowerName(fullName: string) {
 async function findOrCreateCustomer(accessToken: string, realmId: string, customerName: string) {
   const cleanName = customerName.trim()
 
-  // Try exact match first
   const exactResponse = await fetch(
     `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${cleanName.replace(/'/g, "\\'")}'`)}&minorversion=65`,
     { headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' } }
@@ -23,7 +22,6 @@ async function findOrCreateCustomer(accessToken: string, realmId: string, custom
     return exactResult.QueryResponse.Customer[0].Id
   }
 
-  // Try LIKE search for partial/case-insensitive match
   const likeResponse = await fetch(
     `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName LIKE '${cleanName.replace(/'/g, "\\'").replace(/%/g, '\\%')}%'`)}&minorversion=65`,
     { headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' } }
@@ -32,14 +30,12 @@ async function findOrCreateCustomer(accessToken: string, realmId: string, custom
 
   if (likeResult.QueryResponse?.Customer?.length > 0) {
     const customers = likeResult.QueryResponse.Customer
-    // Prefer closest match by name similarity
     const best = customers.find((c: { DisplayName: string }) =>
       c.DisplayName.trim().toLowerCase() === cleanName.toLowerCase()
     )
     return best ? best.Id : customers[0].Id
   }
 
-  // Only create if truly not found
   const createResponse = await fetch(
     `https://quickbooks.api.intuit.com/v3/company/${realmId}/customer?minorversion=65`,
     {
@@ -127,7 +123,7 @@ export async function POST(request: NextRequest) {
 
   const { data: items } = await supabase
     .from('order_items')
-    .select('order_id, flower_name, quantity, price_per_unit, subtotal')
+    .select('order_id, flower_name, quantity, price_per_unit, subtotal, description')
     .in('order_id', orderIds)
 
   const { data: customersData } = await supabase
@@ -139,7 +135,7 @@ export async function POST(request: NextRequest) {
     customerEmailMap[c.name] = { email: c.email || '', cc: c.cc_email || '', bcc: c.bcc_email || '' }
   })
 
-  const itemsByOrder: { [key: number]: { flower_name: string; quantity: number; price_per_unit: number; subtotal: number }[] } = {}
+  const itemsByOrder: { [key: number]: { flower_name: string; quantity: number; price_per_unit: number; subtotal: number; description: string }[] } = {}
   items?.forEach(it => {
     if (!itemsByOrder[it.order_id]) itemsByOrder[it.order_id] = []
     itemsByOrder[it.order_id].push(it)
@@ -180,7 +176,7 @@ export async function POST(request: NextRequest) {
       lines.push({
         Amount: item.subtotal,
         DetailType: 'SalesItemLineDetail',
-        Description: variety,
+        Description: item.description && item.description.trim() ? item.description.trim() : variety,
         SalesItemLineDetail: {
           ItemRef: { value: itemId, name },
           Qty: item.quantity,
@@ -202,6 +198,7 @@ export async function POST(request: NextRequest) {
         lines.push({
           Amount: order.cc_fee_amount,
           DetailType: 'SalesItemLineDetail',
+          Description: 'Credit card processing fee',
           SalesItemLineDetail: {
             ItemRef: { value: ccFeeItemId, name: '2.99% FEE Credit Card' },
             Qty: 1,
@@ -217,9 +214,7 @@ export async function POST(request: NextRequest) {
       CustomerRef: { value: customerId },
       PrivateNote: `Carrier: ${order.carrier} | Truck: ${order.truck_id} | Order: ${order.order_number}`,
     }
-    if (nextDocNumber !== null) {
-      invoice.DocNumber = String(nextDocNumber)
-    }
+    if (nextDocNumber !== null) invoice.DocNumber = String(nextDocNumber)
     if (contact?.email) invoice.BillEmail = { Address: contact.email }
     if (contact?.cc) invoice.BillEmailCc = { Address: contact.cc }
     if (contact?.bcc) invoice.BillEmailBcc = { Address: contact.bcc }

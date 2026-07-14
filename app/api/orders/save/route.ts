@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -31,13 +31,14 @@ export async function POST(request: NextRequest) {
 
   if (order && body.items) {
     await supabase.from('order_items').insert(
-      body.items.map((item: { name: string; qty: number; price: number; sub: number; unit: string }) => ({
+      body.items.map((item: { name: string; qty: number; price: number; sub: number; unit: string; description: string }) => ({
         order_id: order.id,
         flower_name: item.name,
         quantity: item.qty,
         unit: item.unit,
         price_per_unit: item.price,
         subtotal: item.sub,
+        description: item.description || '',
       }))
     )
   }
