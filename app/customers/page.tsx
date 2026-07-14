@@ -11,6 +11,13 @@ const navItems = [
   { label: 'My Commission', href: '/commission', active: false },
 ]
 
+const PAYMENT_TERMS = [
+  { label: 'Due on Receipt', qbId: '1' },
+  { label: 'Net 15', qbId: '2' },
+  { label: 'Net 30', qbId: '3' },
+  { label: 'Net 60', qbId: '4' },
+]
+
 type Customer = {
   id: number
   name: string
@@ -25,6 +32,7 @@ type Customer = {
   cc_email: string
   bcc_email: string
   charges_cc_fee: boolean
+  payment_terms: string
 }
 
 type CustomerOrder = { order_number: string; total: number; status: string; created_at: string }
@@ -42,8 +50,8 @@ export default function Customers() {
   const [editMode, setEditMode] = useState(false)
   const [editContactMode, setEditContactMode] = useState(false)
   const [newNote, setNewNote] = useState('')
-  const [contactEdit, setContactEdit] = useState({ email: '', phone: '', adress: '', city: '', state: '', zip: '', cc_email: '', bcc_email: '', charges_cc_fee: false })
-  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '', charges_cc_fee: false })
+  const [contactEdit, setContactEdit] = useState({ email: '', phone: '', adress: '', city: '', state: '', zip: '', cc_email: '', bcc_email: '', charges_cc_fee: false, payment_terms: 'Due on Receipt' })
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '', charges_cc_fee: false, payment_terms: 'Due on Receipt' })
   const [feedback, setFeedback] = useState('')
 
   const repId = typeof window !== 'undefined' ? localStorage.getItem('user_id') : null
@@ -72,7 +80,18 @@ export default function Customers() {
     setNewNote(c.notes || '')
     setEditMode(false)
     setEditContactMode(false)
-    setContactEdit({ email: c.email || '', phone: c.phone || '', adress: c.adress || '', city: c.city || '', state: c.state || '', zip: c.zip || '', cc_email: c.cc_email || '', bcc_email: c.bcc_email || '', charges_cc_fee: c.charges_cc_fee || false })
+    setContactEdit({
+      email: c.email || '',
+      phone: c.phone || '',
+      adress: c.adress || '',
+      city: c.city || '',
+      state: c.state || '',
+      zip: c.zip || '',
+      cc_email: c.cc_email || '',
+      bcc_email: c.bcc_email || '',
+      charges_cc_fee: c.charges_cc_fee || false,
+      payment_terms: c.payment_terms || 'Due on Receipt',
+    })
     setHistory([])
     fetch(`/api/customers/orders?customer_name=${encodeURIComponent(c.name)}&rep_id=${repId}`)
       .then(r => r.json())
@@ -90,7 +109,7 @@ export default function Customers() {
     try {
       const res = await fetch('/api/customers/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...newCustomer, rep_id: repId, status: 'active' }) })
       const data = await res.json()
-      if (data.success) { setFeedback('✓ Customer added!'); setNewCustomer({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '', charges_cc_fee: false }); setShowAdd(false); loadCustomers() }
+      if (data.success) { setFeedback('✓ Customer added!'); setNewCustomer({ name: '', email: '', phone: '', adress: '', city: '', state: '', zip: '', notes: '', cc_email: '', bcc_email: '', charges_cc_fee: false, payment_terms: 'Due on Receipt' }); setShowAdd(false); loadCustomers() }
       else setFeedback('Could not add customer: ' + data.error)
     } catch { setFeedback('Could not add customer.') }
     setTimeout(() => setFeedback(''), 3000)
@@ -160,6 +179,7 @@ export default function Customers() {
 
       <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
         <div style={{ fontSize: '18px', fontWeight: '500', color: '#111', marginBottom: '1rem' }}>My Customers</div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1rem' }}>
           {[
             { label: 'Total customers', value: customers.length.toString() },
@@ -195,6 +215,12 @@ export default function Customers() {
               </div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>CC email</label><input value={newCustomer.cc_email} onChange={e => setNewCustomer(p => ({ ...p, cc_email: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
               <div><label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>BCC email</label><input value={newCustomer.bcc_email} onChange={e => setNewCustomer(p => ({ ...p, bcc_email: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '3px' }}>Payment terms</label>
+                <select value={newCustomer.payment_terms} onChange={e => setNewCustomer(p => ({ ...p, payment_terms: e.target.value }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }}>
+                  {PAYMENT_TERMS.map(t => <option key={t.qbId} value={t.label}>{t.label}</option>)}
+                </select>
+              </div>
             </div>
             <div style={{ marginTop: '10px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#444', cursor: 'pointer' }}>
@@ -219,7 +245,7 @@ export default function Customers() {
           ) : (
             <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>{['Name', 'Email', 'Phone', 'City', 'Status', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
+                <tr>{['Name', 'Email', 'Phone', 'City', 'Terms', 'Status', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '10px', fontWeight: '500', color: '#888', borderBottom: '0.5px solid #e5e5e3' }}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {filtered.map(c => {
@@ -233,6 +259,7 @@ export default function Customers() {
                       <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.email}</td>
                       <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.phone}</td>
                       <td style={{ padding: '10px 8px', color: '#666', borderBottom: '0.5px solid #f0f0ee' }}>{c.city}</td>
+                      <td style={{ padding: '10px 8px', color: '#666', fontSize: '11px', borderBottom: '0.5px solid #f0f0ee' }}>{c.payment_terms || 'Due on Receipt'}</td>
                       <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}><span style={{ background: badge.bg, color: badge.color, padding: '2px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '500' }}>{badge.label}</span></td>
                       <td style={{ padding: '10px 8px', borderBottom: '0.5px solid #f0f0ee' }}><button onClick={e => { e.stopPropagation(); removeCustomer(c.id) }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D', fontSize: '11px' }}>Remove</button></td>
                     </tr>
@@ -295,6 +322,12 @@ export default function Customers() {
                     </div>
                     <div><label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '3px' }}>CC email</label><input value={contactEdit.cc_email} onChange={e => setContactEdit(p => ({ ...p, cc_email: e.target.value }))} style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
                     <div><label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '3px' }}>BCC email</label><input value={contactEdit.bcc_email} onChange={e => setContactEdit(p => ({ ...p, bcc_email: e.target.value }))} style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }} /></div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '3px' }}>Payment terms</label>
+                      <select value={contactEdit.payment_terms} onChange={e => setContactEdit(p => ({ ...p, payment_terms: e.target.value }))} style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '0.5px solid #e5e5e3', fontSize: '12px', color: '#111' }}>
+                        {PAYMENT_TERMS.map(t => <option key={t.qbId} value={t.label}>{t.label}</option>)}
+                      </select>
+                    </div>
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#444', cursor: 'pointer', marginBottom: '10px' }}>
                     <input type="checkbox" checked={contactEdit.charges_cc_fee} onChange={e => setContactEdit(p => ({ ...p, charges_cc_fee: e.target.checked }))} />
@@ -308,6 +341,7 @@ export default function Customers() {
                   <div style={{ color: '#666' }}>Email: {selected.email || '--'}</div>
                   <div style={{ color: '#666' }}>CC: {selected.cc_email || '--'}</div>
                   <div style={{ color: '#666' }}>BCC: {selected.bcc_email || '--'}</div>
+                  <div style={{ color: '#666' }}>Payment terms: <strong style={{ color: '#111' }}>{selected.payment_terms || 'Due on Receipt'}</strong></div>
                 </div>
               )}
             </div>

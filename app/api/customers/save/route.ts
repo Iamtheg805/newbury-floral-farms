@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     cc_email: body.cc_email || '',
     bcc_email: body.bcc_email || '',
     charges_cc_fee: body.charges_cc_fee || false,
+    payment_terms: body.payment_terms || 'Due on Receipt',
   }
 
   if (body.id) {

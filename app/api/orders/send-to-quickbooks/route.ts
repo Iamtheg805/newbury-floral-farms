@@ -97,6 +97,13 @@ async function getNextDocNumber(accessToken: string, realmId: string) {
   return lastNum + 1
 }
 
+const TERMS_MAP: { [key: string]: string } = {
+  'Due on Receipt': '1',
+  'Net 15': '2',
+  'Net 30': '3',
+  'Net 60': '4',
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const orderIds: number[] = body.order_ids || []
@@ -128,11 +135,16 @@ export async function POST(request: NextRequest) {
 
   const { data: customersData } = await supabase
     .from('customers')
-    .select('name, email, cc_email, bcc_email')
+    .select('name, email, cc_email, bcc_email, payment_terms')
 
-  const customerEmailMap: { [key: string]: { email: string; cc: string; bcc: string } } = {}
+  const customerEmailMap: { [key: string]: { email: string; cc: string; bcc: string; payment_terms: string } } = {}
   customersData?.forEach(c => {
-    customerEmailMap[c.name] = { email: c.email || '', cc: c.cc_email || '', bcc: c.bcc_email || '' }
+    customerEmailMap[c.name] = {
+      email: c.email || '',
+      cc: c.cc_email || '',
+      bcc: c.bcc_email || '',
+      payment_terms: c.payment_terms || 'Due on Receipt',
+    }
   })
 
   const itemsByOrder: { [key: number]: { flower_name: string; quantity: number; price_per_unit: number; subtotal: number; description: string }[] } = {}
@@ -209,11 +221,15 @@ export async function POST(request: NextRequest) {
     }
 
     const contact = customerEmailMap[order.customer_name]
+    const termsId = TERMS_MAP[contact?.payment_terms || 'Due on Receipt'] || '1'
+
     const invoice: Record<string, unknown> = {
       Line: lines,
       CustomerRef: { value: customerId },
+      SalesTermRef: { value: termsId },
       PrivateNote: `Carrier: ${order.carrier} | Truck: ${order.truck_id} | Order: ${order.order_number}`,
     }
+
     if (nextDocNumber !== null) invoice.DocNumber = String(nextDocNumber)
     if (contact?.email) invoice.BillEmail = { Address: contact.email }
     if (contact?.cc) invoice.BillEmailCc = { Address: contact.cc }
