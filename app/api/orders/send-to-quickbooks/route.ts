@@ -12,16 +12,34 @@ function parseFlowerName(fullName: string) {
 
 async function findOrCreateCustomer(accessToken: string, realmId: string, customerName: string) {
   const cleanName = customerName.trim()
-  const searchResponse = await fetch(
+
+  // Try exact match first
+  const exactResponse = await fetch(
     `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${cleanName.replace(/'/g, "\\'")}'`)}&minorversion=65`,
     { headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' } }
   )
-  const searchResult = await searchResponse.json()
-
-  if (searchResult.QueryResponse?.Customer?.length > 0) {
-    return searchResult.QueryResponse.Customer[0].Id
+  const exactResult = await exactResponse.json()
+  if (exactResult.QueryResponse?.Customer?.length > 0) {
+    return exactResult.QueryResponse.Customer[0].Id
   }
 
+  // Try LIKE search for partial/case-insensitive match
+  const likeResponse = await fetch(
+    `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName LIKE '${cleanName.replace(/'/g, "\\'").replace(/%/g, '\\%')}%'`)}&minorversion=65`,
+    { headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' } }
+  )
+  const likeResult = await likeResponse.json()
+
+  if (likeResult.QueryResponse?.Customer?.length > 0) {
+    const customers = likeResult.QueryResponse.Customer
+    // Prefer closest match by name similarity
+    const best = customers.find((c: { DisplayName: string }) =>
+      c.DisplayName.trim().toLowerCase() === cleanName.toLowerCase()
+    )
+    return best ? best.Id : customers[0].Id
+  }
+
+  // Only create if truly not found
   const createResponse = await fetch(
     `https://quickbooks.api.intuit.com/v3/company/${realmId}/customer?minorversion=65`,
     {
